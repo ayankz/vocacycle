@@ -1,0 +1,59 @@
+# macOS
+.DS_Store
+._*
+.AppleDouble
+.LSOverride
+
+# Editor-local state; keep shared VS Code project configuration
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+!.vscode/tasks.json
+!.vscode/launch.json
+*.code-workspace
+.idea/
+*.swp
+*.swo
+*~
+
+# Node / Expo
+node_modules/
+.expo/
+.expo-shared/
+.npm/
+.yarn/cache/
+.yarn/unplugged/
+.yarn/install-state.gz
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# .NET / IDE-local output
+[Bb]in/
+[Oo]bj/
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+TestResults/
+
+# Environment configuration; retain secret-free examples
+.env
+.env.*
+!.env.example
+!.env.*.example
+!.env.sample
+!.env.*.sample
+
+# Local cloud credentials
+.aws/
+
+# Common generated output
+dist/
+build/
+coverage/
+.cache/
+*.log
