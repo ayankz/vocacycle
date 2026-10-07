@@ -1,0 +1,6 @@
+@VocaCycle.Api_HostAddress = http://localhost:5126
+
+GET {{VocaCycle.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
