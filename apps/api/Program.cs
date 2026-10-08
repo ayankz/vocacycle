@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using VocaCycle.Api.Data;
 using VocaCycle.Api.Contracts;
 using VocaCycle.Api.Models;
+using Npgsql;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -18,14 +19,48 @@ app.UseHttpsRedirection();
 app.MapGet("/health", () => new { status = "ok" });
 app.MapPost("/words", async (CreateWordRequest request, VocaCycleDbContext db) =>
 {
+    if (string.IsNullOrWhiteSpace(request.Text)
+    || string.IsNullOrWhiteSpace(request.Translation))
+    {
+        return Results.BadRequest(new { error = "Text and Translation are required." });
+    }
+    var normalizedText = request.Text.Trim().ToLowerInvariant();
+
+    var wordExists = await db.Words.AnyAsync(
+    word => word.Text == normalizedText
+);
+
+    if (wordExists)
+    {
+        return Results.Conflict(new
+        {
+            error = "Word already exists."
+        });
+    }
+
     var word = new Word
     {
-        Text = request.Text,
-        Translation = request.Translation
+        Text = normalizedText,
+        Translation = request.Translation.Trim()
     };
 
     db.Words.Add(word);
-    await db.SaveChangesAsync();
+    try
+    {
+        await db.SaveChangesAsync();
+    }
+    catch (DbUpdateException ex)
+        when (ex.InnerException is PostgresException
+        {
+            SqlState: PostgresErrorCodes.UniqueViolation,
+            ConstraintName: "IX_Words_Text"
+        })
+    {
+        return Results.Conflict(new
+        {
+            error = "Word already exists."
+        });
+    }
 
     return Results.Created($"/words/{word.Id}", word);
 });

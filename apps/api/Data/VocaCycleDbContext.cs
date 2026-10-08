@@ -10,4 +10,10 @@ public class VocaCycleDbContext : DbContext
     }
 
     public DbSet<Word> Words { get; set; }
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<Word>()
+            .HasIndex(word => word.Text)
+            .IsUnique();
+    }
 }
