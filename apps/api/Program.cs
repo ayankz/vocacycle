@@ -17,6 +17,7 @@ app.UseHttpsRedirection();
 
 
 app.MapGet("/health", () => new { status = "ok" });
+
 app.MapPost("/words", async (CreateWordRequest request, VocaCycleDbContext db) =>
 {
     if (string.IsNullOrWhiteSpace(request.Text)
@@ -64,6 +65,7 @@ app.MapPost("/words", async (CreateWordRequest request, VocaCycleDbContext db) =
 
     return Results.Created($"/words/{word.Id}", word);
 });
+
 app.MapGet("/words", async (VocaCycleDbContext db) =>
 {
     var words = await db.Words.ToListAsync();
@@ -71,5 +73,92 @@ app.MapGet("/words", async (VocaCycleDbContext db) =>
     return Results.Ok(words);
 });
 
+app.MapPost("/audio-sessions", async (CreateAudioSessionRequest request,
+    VocaCycleDbContext db) =>
+{
+    if (request.WordIds is null || request.WordIds.Count == 0)
+    {
+        return Results.BadRequest(new
+        {
+            error = "Select at least one word."
+        });
+    }
+
+    if (request.WordIds.Distinct().Count() != request.WordIds.Count)
+    {
+        return Results.BadRequest(new
+        {
+            error = "Duplicate word IDs are not allowed."
+        });
+    }
+
+    var words = await db.Words
+        .Where(word => request.WordIds.Contains(word.Id))
+        .ToListAsync();
+
+    if (words.Count != request.WordIds.Count)
+    {
+        return Results.BadRequest(new
+        {
+            error = "One or more words do not exist."
+        });
+    }
+
+    var session = new AudioSession
+    {
+        Words = request.WordIds
+            .Select((wordId, index) => new AudioSessionWord
+            {
+                WordId = wordId,
+                Position = index
+            })
+            .ToList()
+    };
+
+    db.AudioSessions.Add(session);
+    await db.SaveChangesAsync();
+
+    return Results.Created($"/audio-sessions/{session.Id}", new
+    {
+        session.Id,
+        session.Status,
+        session.CreatedAt,
+        WordIds = request.WordIds
+    });
+});
+
+app.MapGet("/audio-sessions/{id:long}", async (
+    long id,
+    VocaCycleDbContext db
+) =>
+{
+    var session = await db.AudioSessions
+    .Include(s => s.Words)
+    .ThenInclude(sw => sw.Word)
+    .FirstOrDefaultAsync(s => s.Id == id);
+
+    if (session is null)
+    {
+        return Results.NotFound(new
+        {
+            error = "Audio session not found."
+        });
+    }
+    return Results.Ok(new
+    {
+        session.Id,
+        session.Status,
+        session.CreatedAt,
+        Words = session.Words
+        .OrderBy(sw => sw.Position)
+        .Select(sw => new
+        {
+            sw.WordId,
+            sw.Word.Text,
+            sw.Word.Translation,
+            sw.Position
+        })
+    });
+});
 app.Run();
 

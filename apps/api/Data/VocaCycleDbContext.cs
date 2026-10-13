@@ -10,10 +10,16 @@ public class VocaCycleDbContext : DbContext
     }
 
     public DbSet<Word> Words { get; set; }
+    public DbSet<AudioSession> AudioSessions { get; set; }
+    public DbSet<AudioSessionWord> AudioSessionWords { get; set; }
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<Word>()
             .HasIndex(word => word.Text)
             .IsUnique();
+
+        modelBuilder.Entity<AudioSessionWord>()
+            .HasKey(sw => new { sw.AudioSessionId, sw.WordId });
     }
+
 }
