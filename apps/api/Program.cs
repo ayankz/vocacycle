@@ -160,5 +160,34 @@ app.MapGet("/audio-sessions/{id:long}", async (
         })
     });
 });
+
+app.MapGet("/words/{id:long}/examples", async (
+    long id,
+    VocaCycleDbContext db) =>
+{
+    var wordExists = await db.Words
+        .AnyAsync(w => w.Id == id);
+
+    if (!wordExists)
+    {
+        return Results.NotFound(new
+        {
+            error = "Word not found."
+        });
+    }
+
+    var examples = await db.WordExamples
+        .Where(e => e.WordId == id)
+        .OrderBy(e => e.Position)
+        .Select(e => new
+        {
+            e.Id,
+            e.Text,
+            e.Position
+        })
+        .ToListAsync();
+
+    return Results.Ok(examples);
+});
 app.Run();
 

@@ -84,6 +84,31 @@ namespace VocaCycle.Api.Migrations
                     b.ToTable("Words");
                 });
 
+            modelBuilder.Entity("VocaCycle.Api.Models.WordExample", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<int>("Position")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<long>("WordId")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("WordId");
+
+                    b.ToTable("WordExamples");
+                });
+
             modelBuilder.Entity("VocaCycle.Api.Models.AudioSessionWord", b =>
                 {
                     b.HasOne("VocaCycle.Api.Models.AudioSession", "AudioSession")
@@ -103,9 +128,25 @@ namespace VocaCycle.Api.Migrations
                     b.Navigation("Word");
                 });
 
+            modelBuilder.Entity("VocaCycle.Api.Models.WordExample", b =>
+                {
+                    b.HasOne("VocaCycle.Api.Models.Word", "Word")
+                        .WithMany("Examples")
+                        .HasForeignKey("WordId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Word");
+                });
+
             modelBuilder.Entity("VocaCycle.Api.Models.AudioSession", b =>
                 {
                     b.Navigation("Words");
+                });
+
+            modelBuilder.Entity("VocaCycle.Api.Models.Word", b =>
+                {
+                    b.Navigation("Examples");
                 });
 #pragma warning restore 612, 618
         }

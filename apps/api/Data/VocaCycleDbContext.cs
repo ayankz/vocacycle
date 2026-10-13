@@ -12,6 +12,8 @@ public class VocaCycleDbContext : DbContext
     public DbSet<Word> Words { get; set; }
     public DbSet<AudioSession> AudioSessions { get; set; }
     public DbSet<AudioSessionWord> AudioSessionWords { get; set; }
+    public DbSet<WordExample> WordExamples { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<Word>()
