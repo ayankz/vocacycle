@@ -3,12 +3,20 @@ using VocaCycle.Api.Data;
 using VocaCycle.Api.Contracts;
 using VocaCycle.Api.Models;
 using Npgsql;
+using VocaCycle.Api.Services;
+using VocaCycle.Api.Services.Generators;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddDbContext<VocaCycleDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+builder.Services.AddHttpClient<IExampleGenerator, OllamaExampleGenerator>(
+client =>
+{
+    client.BaseAddress = new Uri("http://localhost:11434");
+});
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -189,5 +197,66 @@ app.MapGet("/words/{id:long}/examples", async (
 
     return Results.Ok(examples);
 });
+
+app.MapPost("/words/{id:long}/generate-examples",
+    async (long id, VocaCycleDbContext db, IExampleGenerator generator) =>
+    {
+        var word = await db.Words
+            .Include(w => w.Examples)
+            .FirstOrDefaultAsync(w => w.Id == id);
+
+        if (word is null)
+        {
+            return Results.NotFound();
+        }
+        if (word.Examples.Count > 0)
+        {
+            return Results.Ok(new
+            {
+                word.Id,
+                word.Text,
+                word.Translation,
+                Examples = word.Examples
+                    .OrderBy(e => e.Position)
+                    .Select(e => new
+                    {
+                        e.Id,
+                        e.Text,
+                        e.Position
+                    })
+            });
+        }
+        var generatedSentences = await generator.GenerateAsync(
+    word.Text,
+    word.Translation);
+
+        for (int i = 0; i < generatedSentences.Count; i++)
+        {
+            word.Examples.Add(new WordExample
+            {
+                WordId = word.Id,
+                Text = generatedSentences[i],
+                Position = i
+            });
+        }
+
+        await db.SaveChangesAsync();
+
+        return Results.Ok(new
+        {
+            word.Id,
+            word.Text,
+            word.Translation,
+            Examples = word.Examples
+                .OrderBy(e => e.Position)
+                .Select(e => new
+                {
+                    e.Id,
+                    e.Text,
+                    e.Position
+                })
+        });
+    });
+
 app.Run();
 
