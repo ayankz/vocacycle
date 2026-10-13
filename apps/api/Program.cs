@@ -258,5 +258,84 @@ app.MapPost("/words/{id:long}/generate-examples",
         });
     });
 
+app.MapPost("/audio-sessions/{id:long}/prepare-examples",
+    async (
+        long id,
+        VocaCycleDbContext db,
+        IExampleGenerator generator) =>
+    {
+        var session = await db.AudioSessions
+            .Include(s => s.Words)
+                .ThenInclude(sw => sw.Word)
+                    .ThenInclude(w => w.Examples)
+            .FirstOrDefaultAsync(s => s.Id == id);
+
+        if (session is null)
+        {
+            return Results.NotFound(new
+            {
+                error = "Audio session not found."
+            });
+        }
+        foreach (var sessionWord in session.Words.OrderBy(sw => sw.Position))
+        {
+            var word = sessionWord.Word;
+            // Skip words that already have examples
+            if (word.Examples.Count > 0)
+            {
+                continue;
+            }
+
+            List<string>? sentences = null;
+            // Retry generation up to 3 times
+            for (int attempt = 1; attempt <= 3; attempt++)
+            {
+                try
+                {
+                    sentences = await generator.GenerateAsync(
+                        word.Text,
+                        word.Translation);
+
+                    break;
+                }
+                catch (InvalidOperationException ex) when (attempt < 3)
+                {
+                    // Try generating again
+                    Console.WriteLine(
+        $"Attempt {attempt} failed: {ex.Message}");
+                }
+            }
+            if (sentences is null)
+            {
+                throw new InvalidOperationException(
+                    $"Failed to generate examples for '{word.Text}'.");
+            }
+
+            for (int i = 0; i < sentences.Count; i++)
+            {
+                word.Examples.Add(new WordExample
+                {
+                    WordId = word.Id,
+                    Text = sentences[i],
+                    Position = i
+                });
+            }
+            // Save examples after each word
+            await db.SaveChangesAsync();
+        }
+        return Results.Ok(new
+        {
+            session.Id,
+            Words = session.Words
+                .OrderBy(sw => sw.Position)
+                .Select(sw => new
+                {
+                    sw.WordId,
+                    sw.Word.Text,
+                    ExampleCount = sw.Word.Examples.Count
+                })
+        });
+    });
+
 app.Run();
 
