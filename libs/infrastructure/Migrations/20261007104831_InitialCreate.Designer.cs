@@ -4,15 +4,15 @@ using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
-using VocaCycle.Api.Data;
+using VocaCycle.Infrastructure.Data;
 
 #nullable disable
 
 namespace VocaCycle.Api.Migrations
 {
     [DbContext(typeof(VocaCycleDbContext))]
-    [Migration("20261008044933_AddUniqueWordTextIndex")]
-    partial class AddUniqueWordTextIndex
+    [Migration("20261007104831_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -41,9 +41,6 @@ namespace VocaCycle.Api.Migrations
                         .HasColumnType("text");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("Text")
-                        .IsUnique();
 
                     b.ToTable("Words");
                 });

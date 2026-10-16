@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
-using VocaCycle.Api.Models;
-namespace VocaCycle.Api.Data;
+using VocaCycle.Infrastructure.Models;
+namespace VocaCycle.Infrastructure.Data;
 
 public class VocaCycleDbContext : DbContext
 {

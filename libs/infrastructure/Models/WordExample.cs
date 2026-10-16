@@ -1,4 +1,4 @@
-namespace VocaCycle.Api.Models;
+namespace VocaCycle.Infrastructure.Models;
 
 public class WordExample
 {

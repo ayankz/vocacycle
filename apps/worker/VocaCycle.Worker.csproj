@@ -11,4 +11,8 @@
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.12" />
     <PackageReference Include="StackExchange.Redis" Version="3.4.5" />
   </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\libs\infrastructure\VocaCycle.Infrastructure.csproj" />
+  </ItemGroup>
 </Project>

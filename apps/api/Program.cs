@@ -1,10 +1,11 @@
 using Microsoft.EntityFrameworkCore;
-using VocaCycle.Api.Data;
+using VocaCycle.Infrastructure.Data;
 using VocaCycle.Api.Contracts;
-using VocaCycle.Api.Models;
+using VocaCycle.Infrastructure.Models;
 using Npgsql;
 using VocaCycle.Api.Services;
 using VocaCycle.Api.Services.Generators;
+using StackExchange.Redis;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -17,16 +18,20 @@ client =>
 {
     client.BaseAddress = new Uri("http://localhost:11434");
 });
+
+builder.Services.AddSingleton<IConnectionMultiplexer>(
+    _ => ConnectionMultiplexer.Connect("localhost:6379")
+);
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
 
 app.UseHttpsRedirection();
 
-
 app.MapGet("/health", () => new { status = "ok" });
 
-app.MapPost("/words", async (CreateWordRequest request, VocaCycleDbContext db) =>
+app.MapPost("/words", async (CreateWordRequest request, VocaCycleDbContext db, IConnectionMultiplexer redis) =>
 {
     if (string.IsNullOrWhiteSpace(request.Text)
     || string.IsNullOrWhiteSpace(request.Translation))
@@ -82,7 +87,7 @@ app.MapGet("/words", async (VocaCycleDbContext db) =>
 });
 
 app.MapPost("/audio-sessions", async (CreateAudioSessionRequest request,
-    VocaCycleDbContext db) =>
+    VocaCycleDbContext db, IConnectionMultiplexer redis) =>
 {
     if (request.WordIds is null || request.WordIds.Count == 0)
     {
@@ -114,6 +119,9 @@ app.MapPost("/audio-sessions", async (CreateAudioSessionRequest request,
 
     var session = new AudioSession
     {
+        IncludeWordTranslation = request.IncludeWordTranslation,
+        IncludeExampleTranslations = request.IncludeExampleTranslations,
+
         Words = request.WordIds
             .Select((wordId, index) => new AudioSessionWord
             {
@@ -126,6 +134,13 @@ app.MapPost("/audio-sessions", async (CreateAudioSessionRequest request,
     db.AudioSessions.Add(session);
     await db.SaveChangesAsync();
 
+    var redisDb = redis.GetDatabase();
+
+    await redisDb.StreamAddAsync(
+        "vocacycle:audio:jobs",
+        "sessionId",
+        session.Id.ToString()
+    );
     return Results.Created($"/audio-sessions/{session.Id}", new
     {
         session.Id,

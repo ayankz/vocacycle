@@ -2,18 +2,21 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
-using VocaCycle.Api.Data;
+using VocaCycle.Infrastructure.Data;
 
 #nullable disable
 
-namespace VocaCycle.Api.Migrations
+namespace VocaCycle.Api.Data.Migrations
 {
     [DbContext(typeof(VocaCycleDbContext))]
-    partial class VocaCycleDbContextModelSnapshot : ModelSnapshot
+    [Migration("20261016044007_AddAudioSessionTranslationSettings")]
+    partial class AddAudioSessionTranslationSettings
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -32,6 +35,12 @@ namespace VocaCycle.Api.Migrations
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IncludeExampleTranslations")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IncludeWordTranslation")
+                        .HasColumnType("boolean");
 
                     b.Property<string>("Status")
                         .IsRequired()
