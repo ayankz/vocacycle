@@ -19,7 +19,9 @@ public class VocaCycleDbContext : DbContext
         modelBuilder.Entity<Word>()
             .HasIndex(word => word.Text)
             .IsUnique();
-
+        modelBuilder.Entity<WordExample>()
+            .HasIndex(e => new { e.WordId, e.Position })
+            .IsUnique();
         modelBuilder.Entity<AudioSessionWord>()
             .HasKey(sw => new { sw.AudioSessionId, sw.WordId });
     }
