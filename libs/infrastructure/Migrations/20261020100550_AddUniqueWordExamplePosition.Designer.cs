@@ -2,18 +2,21 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
-using VocaCycle.Api.Data;
+using VocaCycle.Infrastructure.Data;
 
 #nullable disable
 
-namespace VocaCycle.Api.Migrations
+namespace VocaCycle.Api.Data.Migrations
 {
     [DbContext(typeof(VocaCycleDbContext))]
-    partial class VocaCycleDbContextModelSnapshot : ModelSnapshot
+    [Migration("20261020100550_AddUniqueWordExamplePosition")]
+    partial class AddUniqueWordExamplePosition
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -22,7 +25,7 @@ namespace VocaCycle.Api.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
-            modelBuilder.Entity("VocaCycle.Api.Models.AudioSession", b =>
+            modelBuilder.Entity("VocaCycle.Infrastructure.Models.AudioSession", b =>
                 {
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
@@ -33,6 +36,12 @@ namespace VocaCycle.Api.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<bool>("IncludeExampleTranslations")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IncludeWordTranslation")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasColumnType("text");
@@ -42,7 +51,7 @@ namespace VocaCycle.Api.Migrations
                     b.ToTable("AudioSessions");
                 });
 
-            modelBuilder.Entity("VocaCycle.Api.Models.AudioSessionWord", b =>
+            modelBuilder.Entity("VocaCycle.Infrastructure.Models.AudioSessionWord", b =>
                 {
                     b.Property<long>("AudioSessionId")
                         .HasColumnType("bigint");
@@ -60,7 +69,7 @@ namespace VocaCycle.Api.Migrations
                     b.ToTable("AudioSessionWords");
                 });
 
-            modelBuilder.Entity("VocaCycle.Api.Models.Word", b =>
+            modelBuilder.Entity("VocaCycle.Infrastructure.Models.Word", b =>
                 {
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
@@ -84,7 +93,7 @@ namespace VocaCycle.Api.Migrations
                     b.ToTable("Words");
                 });
 
-            modelBuilder.Entity("VocaCycle.Api.Models.WordExample", b =>
+            modelBuilder.Entity("VocaCycle.Infrastructure.Models.WordExample", b =>
                 {
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
@@ -104,20 +113,21 @@ namespace VocaCycle.Api.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("WordId");
+                    b.HasIndex("WordId", "Position")
+                        .IsUnique();
 
                     b.ToTable("WordExamples");
                 });
 
-            modelBuilder.Entity("VocaCycle.Api.Models.AudioSessionWord", b =>
+            modelBuilder.Entity("VocaCycle.Infrastructure.Models.AudioSessionWord", b =>
                 {
-                    b.HasOne("VocaCycle.Api.Models.AudioSession", "AudioSession")
+                    b.HasOne("VocaCycle.Infrastructure.Models.AudioSession", "AudioSession")
                         .WithMany("Words")
                         .HasForeignKey("AudioSessionId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("VocaCycle.Api.Models.Word", "Word")
+                    b.HasOne("VocaCycle.Infrastructure.Models.Word", "Word")
                         .WithMany()
                         .HasForeignKey("WordId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -128,9 +138,9 @@ namespace VocaCycle.Api.Migrations
                     b.Navigation("Word");
                 });
 
-            modelBuilder.Entity("VocaCycle.Api.Models.WordExample", b =>
+            modelBuilder.Entity("VocaCycle.Infrastructure.Models.WordExample", b =>
                 {
-                    b.HasOne("VocaCycle.Api.Models.Word", "Word")
+                    b.HasOne("VocaCycle.Infrastructure.Models.Word", "Word")
                         .WithMany("Examples")
                         .HasForeignKey("WordId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -139,12 +149,12 @@ namespace VocaCycle.Api.Migrations
                     b.Navigation("Word");
                 });
 
-            modelBuilder.Entity("VocaCycle.Api.Models.AudioSession", b =>
+            modelBuilder.Entity("VocaCycle.Infrastructure.Models.AudioSession", b =>
                 {
                     b.Navigation("Words");
                 });
 
-            modelBuilder.Entity("VocaCycle.Api.Models.Word", b =>
+            modelBuilder.Entity("VocaCycle.Infrastructure.Models.Word", b =>
                 {
                     b.Navigation("Examples");
                 });

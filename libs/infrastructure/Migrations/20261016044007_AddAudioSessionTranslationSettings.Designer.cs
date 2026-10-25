@@ -5,15 +5,15 @@ using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
-using VocaCycle.Api.Data;
+using VocaCycle.Infrastructure.Data;
 
 #nullable disable
 
-namespace VocaCycle.Api.Migrations
+namespace VocaCycle.Api.Data.Migrations
 {
     [DbContext(typeof(VocaCycleDbContext))]
-    [Migration("20261008053501_AddAudioSessions")]
-    partial class AddAudioSessions
+    [Migration("20261016044007_AddAudioSessionTranslationSettings")]
+    partial class AddAudioSessionTranslationSettings
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -35,6 +35,12 @@ namespace VocaCycle.Api.Migrations
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IncludeExampleTranslations")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IncludeWordTranslation")
+                        .HasColumnType("boolean");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -87,6 +93,31 @@ namespace VocaCycle.Api.Migrations
                     b.ToTable("Words");
                 });
 
+            modelBuilder.Entity("VocaCycle.Api.Models.WordExample", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<int>("Position")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<long>("WordId")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("WordId");
+
+                    b.ToTable("WordExamples");
+                });
+
             modelBuilder.Entity("VocaCycle.Api.Models.AudioSessionWord", b =>
                 {
                     b.HasOne("VocaCycle.Api.Models.AudioSession", "AudioSession")
@@ -106,9 +137,25 @@ namespace VocaCycle.Api.Migrations
                     b.Navigation("Word");
                 });
 
+            modelBuilder.Entity("VocaCycle.Api.Models.WordExample", b =>
+                {
+                    b.HasOne("VocaCycle.Api.Models.Word", "Word")
+                        .WithMany("Examples")
+                        .HasForeignKey("WordId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Word");
+                });
+
             modelBuilder.Entity("VocaCycle.Api.Models.AudioSession", b =>
                 {
                     b.Navigation("Words");
+                });
+
+            modelBuilder.Entity("VocaCycle.Api.Models.Word", b =>
+                {
+                    b.Navigation("Examples");
                 });
 #pragma warning restore 612, 618
         }

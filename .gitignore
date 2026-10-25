@@ -57,3 +57,4 @@ build/
 coverage/
 .cache/
 *.log
+/storage/audio/
