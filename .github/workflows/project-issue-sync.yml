@@ -1,0 +1,181 @@
+name: Sync issue to VocaCycle MVP
+
+on:
+  issues:
+    types: [opened, edited]
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: Existing issue number to synchronize
+        required: true
+        type: string
+
+# All API operations use the dedicated Project token, not GITHUB_TOKEN.
+permissions: {}
+
+concurrency:
+  group: project-issue-${{ github.repository }}-${{ github.event.issue.number || inputs.issue_number }}
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Add issue and synchronize Project fields
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea9 # v7
+        env:
+          ISSUE_NUMBER: ${{ github.event.issue.number || inputs.issue_number }}
+        with:
+          github-token: ${{ secrets.VOCACYCLE_PROJECT_TOKEN }}
+          script: |
+            const owner = 'ayankz';
+            const title = 'VocaCycle — MVP';
+            const number = Number(process.env.ISSUE_NUMBER);
+            if (!/^[1-9]\d*$/.test(process.env.ISSUE_NUMBER || '') || !Number.isSafeInteger(number)) {
+              core.setFailed('issue_number must be a positive integer.');
+              return;
+            }
+
+            // Do not log raw API errors: they may contain request headers.
+            async function api(query, variables, operation) {
+              try {
+                return await github.graphql(query, variables);
+              } catch (error) {
+                core.error(`${operation} failed (HTTP ${error.status || 'unknown'}). Check token access, Projects permissions, field configuration, and GitHub API availability.`);
+                throw new Error(`${operation} failed.`);
+              }
+            }
+
+            async function pages(query, variables, select, operation) {
+              const nodes = [];
+              let after = null;
+              do {
+                const connection = select(await api(query, { ...variables, after }, operation));
+                if (!connection) throw new Error(`${operation}: expected connection was not returned.`);
+                nodes.push(...connection.nodes.filter(Boolean));
+                after = connection.pageInfo.hasNextPage ? connection.pageInfo.endCursor : null;
+                if (connection.pageInfo.hasNextPage && !after) throw new Error(`${operation}: missing pagination cursor.`);
+              } while (after);
+              return nodes;
+            }
+
+            try {
+              const projects = await pages(`query($owner: String!, $after: String) {
+                user(login: $owner) { projectsV2(first: 100, after: $after) {
+                  nodes { id title } pageInfo { hasNextPage endCursor }
+                } }
+              }`, { owner }, data => data.user?.projectsV2, 'Find user Project');
+              const matches = projects.filter(project => project.title === title);
+              if (matches.length !== 1) throw new Error(`Expected exactly one user Project named "${title}"; found ${matches.length}. No Project was created.`);
+              const project = matches[0];
+
+              const { repository } = await api(`query($owner: String!, $repo: String!, $number: Int!) {
+                repository(owner: $owner, name: $repo) { issue(number: $number) { id body } }
+              }`, { owner: context.repo.owner, repo: context.repo.repo, number }, 'Read issue');
+              const issue = repository?.issue;
+              if (!issue) throw new Error(`Issue #${number} was not found.`);
+
+              const fields = await pages(`query($id: ID!, $after: String) {
+                node(id: $id) { ... on ProjectV2 { fields(first: 100, after: $after) {
+                  nodes {
+                    ... on ProjectV2Field { id name dataType }
+                    ... on ProjectV2SingleSelectField { id name dataType options { id name } }
+                  } pageInfo { hasNextPage endCursor }
+                } } }
+              }`, { id: project.id }, data => data.node?.fields, 'Read Project fields');
+
+              function field(name, type) {
+                const found = fields.filter(value => value.name === name);
+                if (found.length !== 1 || found[0].dataType !== type) {
+                  throw new Error(`Project requires exactly one ${type} field named "${name}".`);
+                }
+                return found[0];
+              }
+              function option(field, name) {
+                const found = field.options.filter(value => value.name === name);
+                if (found.length !== 1) throw new Error(`Field "${field.name}" requires exactly one option named "${name}".`);
+                return found[0].id;
+              }
+              const status = field('Status', 'SINGLE_SELECT');
+              const priority = field('Priority', 'SINGLE_SELECT');
+              const updates = [];
+
+              // Only accept a complete numeric value in the level-two Estimate section.
+              // Ignore headings inside fenced code blocks.
+              let fence = null;
+              const body = (issue.body || '').split(/\r?\n/).filter(line => {
+                const marker = line.match(/^\s{0,3}(`{3,}|~{3,})/);
+                if (marker) {
+                  if (!fence) fence = marker[1];
+                  else if (marker[1][0] === fence[0] && marker[1].length >= fence.length) fence = null;
+                  return false;
+                }
+                return !fence;
+              }).join('\n');
+              const sections = [...body.matchAll(/^##[ \t]+Estimate[ \t]*#*[ \t]*\r?$\n?([\s\S]*?)(?=^#{1,2}[ \t]+|$(?![\s\S]))/gmi)];
+              const estimateText = sections.length === 1 ? sections[0][1].trim() : '';
+              const valid = /^(?:\d+(?:\.\d+)?|\.\d+)(?:[ \t]+(?:hours?|hrs?|h))?$/i.test(estimateText);
+              const estimate = valid ? Number.parseFloat(estimateText) : NaN;
+              if (Number.isFinite(estimate) && estimate >= 0) {
+                updates.push([field('Estimate (hours)', 'NUMBER').id, { number: estimate }]);
+              } else {
+                core.warning(`Issue #${number}: ## Estimate is absent, duplicated, or invalid. Estimate (hours) will remain unchanged; use a value such as "2 hours" or "1.5 hours".`);
+              }
+
+              const itemQuery = `query($id: ID!, $after: String) {
+                node(id: $id) { ... on Issue { projectItems(first: 100, after: $after) {
+                  nodes { id project { id } } pageInfo { hasNextPage endCursor }
+                } } }
+              }`;
+              async function existingItem() {
+                const items = await pages(itemQuery, { id: issue.id }, data => data.node?.projectItems, 'Find issue Project item');
+                const matches = items.filter(item => item.project.id === project.id);
+                if (matches.length > 1) throw new Error('Multiple existing Project items found for this issue; refusing to update an ambiguous item.');
+                return matches[0];
+              }
+              let item = await existingItem();
+              if (!item) {
+                try {
+                  // GitHub returns the existing item if Auto-add wins this race.
+                  const result = await api(`mutation($project: ID!, $issue: ID!) {
+                    addProjectV2ItemById(input: { projectId: $project, contentId: $issue }) { item { id } }
+                  }`, { project: project.id, issue: issue.id }, 'Add issue to Project');
+                  item = result.addProjectV2ItemById.item;
+                } catch (error) {
+                  // Also recover if an Auto-add race is reported as an API error.
+                  item = await existingItem();
+                  if (!item) throw error;
+                  core.warning('Add request failed, but the issue is already in the Project; using the existing item.');
+                }
+              }
+              // Read after add/recovery so Auto-add's existing selections are preserved.
+              const selections = await pages(`query($id: ID!, $after: String) {
+                node(id: $id) { ... on ProjectV2Item { fieldValues(first: 100, after: $after) {
+                  nodes { ... on ProjectV2ItemFieldSingleSelectValue {
+                    optionId field { ... on ProjectV2SingleSelectField { id } }
+                  } } pageInfo { hasNextPage endCursor }
+                } } }
+              }`, { id: item.id }, data => data.node?.fieldValues, 'Read current Project selections');
+              const selected = new Map(selections.filter(value => value.field?.id)
+                .map(value => [value.field.id, value.optionId]));
+              for (const [target, defaultOption] of [[status, 'Todo'], [priority, 'Critical']]) {
+                if (!selected.get(target.id)) {
+                  updates.push([target.id, { singleSelectOptionId: option(target, defaultOption) }]);
+                  core.info(`Initializing unset ${target.name} to ${defaultOption}.`);
+                } else {
+                  core.info(`Preserving existing ${target.name}.`);
+                }
+              }
+              for (const [fieldId, value] of updates) {
+                await api(`mutation($project: ID!, $item: ID!, $field: ID!, $value: ProjectV2FieldValue!) {
+                  updateProjectV2ItemFieldValue(input: {
+                    projectId: $project, itemId: $item, fieldId: $field, value: $value
+                  }) { projectV2Item { id } }
+                }`, { project: project.id, item: item.id, field: fieldId, value }, 'Update Project field');
+              }
+              // Actual (hours) is deliberately never read, cleared, or updated.
+              core.info(`Issue #${number} synchronized to "${title}": Status/Priority initialized only if unset${Number.isFinite(estimate) ? `, Estimate=${estimate}` : ', Estimate unchanged'}. Actual (hours) unchanged.`);
+            } catch (error) {
+              core.setFailed(error.message);
+            }
