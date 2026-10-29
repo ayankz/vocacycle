@@ -99,10 +99,7 @@ jobs:
               }
               const status = field('Status', 'SINGLE_SELECT');
               const priority = field('Priority', 'SINGLE_SELECT');
-              const updates = [
-                [status.id, { singleSelectOptionId: option(status, 'Todo') }],
-                [priority.id, { singleSelectOptionId: option(priority, 'Critical') }],
-              ];
+              const updates = [];
 
               // Only accept a complete numeric value in the level-two Estimate section.
               // Ignore headings inside fenced code blocks.
@@ -152,6 +149,24 @@ jobs:
                   core.warning('Add request failed, but the issue is already in the Project; using the existing item.');
                 }
               }
+              // Read after add/recovery so Auto-add's existing selections are preserved.
+              const selections = await pages(`query($id: ID!, $after: String) {
+                node(id: $id) { ... on ProjectV2Item { fieldValues(first: 100, after: $after) {
+                  nodes { ... on ProjectV2ItemFieldSingleSelectValue {
+                    optionId field { ... on ProjectV2SingleSelectField { id } }
+                  } } pageInfo { hasNextPage endCursor }
+                } } }
+              }`, { id: item.id }, data => data.node?.fieldValues, 'Read current Project selections');
+              const selected = new Map(selections.filter(value => value.field?.id)
+                .map(value => [value.field.id, value.optionId]));
+              for (const [target, defaultOption] of [[status, 'Todo'], [priority, 'Critical']]) {
+                if (!selected.get(target.id)) {
+                  updates.push([target.id, { singleSelectOptionId: option(target, defaultOption) }]);
+                  core.info(`Initializing unset ${target.name} to ${defaultOption}.`);
+                } else {
+                  core.info(`Preserving existing ${target.name}.`);
+                }
+              }
               for (const [fieldId, value] of updates) {
                 await api(`mutation($project: ID!, $item: ID!, $field: ID!, $value: ProjectV2FieldValue!) {
                   updateProjectV2ItemFieldValue(input: {
@@ -160,7 +175,7 @@ jobs:
                 }`, { project: project.id, item: item.id, field: fieldId, value }, 'Update Project field');
               }
               // Actual (hours) is deliberately never read, cleared, or updated.
-              core.info(`Issue #${number} synchronized to "${title}": Status=Todo, Priority=Critical${Number.isFinite(estimate) ? `, Estimate=${estimate}` : ', Estimate unchanged'}. Actual (hours) unchanged.`);
+              core.info(`Issue #${number} synchronized to "${title}": Status/Priority initialized only if unset${Number.isFinite(estimate) ? `, Estimate=${estimate}` : ', Estimate unchanged'}. Actual (hours) unchanged.`);
             } catch (error) {
               core.setFailed(error.message);
             }
