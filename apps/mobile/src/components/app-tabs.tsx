@@ -1,30 +1,41 @@
 import { NativeTabs } from 'expo-router/native-tabs';
-import { useColorScheme } from 'react-native';
 
-import { Colors } from '@/constants/theme';
+import { colors } from '@/shared/theme/colors';
 
 export default function AppTabs() {
-  const scheme = useColorScheme();
-  const colors = Colors[scheme === 'dark' ? 'dark' : 'light'];
-
   return (
     <NativeTabs
-      backgroundColor={colors.background}
-      indicatorColor={colors.backgroundElement}
-      labelStyle={{ selected: { color: colors.text } }}>
+      backgroundColor={colors.tabBarBackground}
+      tintColor={colors.primary}
+      iconColor={colors.tabInactive}
+      disableTransparentOnScrollEdge
+    >
       <NativeTabs.Trigger name="index">
         <NativeTabs.Trigger.Label>Home</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon
-          src={require('@/assets/images/tabIcons/home.png')}
-          renderingMode="template"
+          sf={{ default: 'house', selected: 'house.fill' }}
         />
       </NativeTabs.Trigger>
 
-      <NativeTabs.Trigger name="explore">
-        <NativeTabs.Trigger.Label>Explore</NativeTabs.Trigger.Label>
+      <NativeTabs.Trigger name="vocabulary">
+        <NativeTabs.Trigger.Label>Vocabulary</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon
-          src={require('@/assets/images/tabIcons/explore.png')}
-          renderingMode="template"
+          sf={{ default: 'book', selected: 'book.fill' }}
+        />
+      </NativeTabs.Trigger>
+
+      <NativeTabs.Trigger name="audio">
+        <NativeTabs.Trigger.Label>Audio</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon sf="headphones" />
+      </NativeTabs.Trigger>
+
+      <NativeTabs.Trigger name="progress">
+        <NativeTabs.Trigger.Label>Progress</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon
+          sf={{
+            default: 'chart.bar',
+            selected: 'chart.bar.fill',
+          }}
         />
       </NativeTabs.Trigger>
     </NativeTabs>
