@@ -9,8 +9,8 @@ import { AppText } from '@/shared/ui/AppText';
 export type RecentWord = {
   id: string;
   word: string;
-  phonetic: string;
-  translation: string;
+  phonetic: string | null;
+  translation: string | null;
 };
 
 type RecentWordRowProps = {
@@ -24,11 +24,9 @@ export function RecentWordRow({ word, onPronounce }: RecentWordRowProps) {
       <View style={styles.copy}>
         <View style={styles.wordLine}>
           <AppText variant="compactTitle" style={styles.word}>{word.word}</AppText>
-          <AppText color={colors.textSubtle} style={styles.phonetic}>{word.phonetic}</AppText>
+          {word.phonetic && <AppText color={colors.textSubtle} style={styles.phonetic}>{word.phonetic}</AppText>}
         </View>
-        <AppText variant="caption" numberOfLines={1} color={colors.textCaption} style={styles.translation}>
-          {word.translation}
-        </AppText>
+        {word.translation && <AppText variant="caption" numberOfLines={1} color={colors.textCaption} style={styles.translation}>{word.translation}</AppText>}
       </View>
       <Pressable
         accessibilityRole="button"

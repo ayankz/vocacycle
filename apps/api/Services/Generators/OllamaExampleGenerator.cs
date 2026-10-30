@@ -12,8 +12,11 @@ public class OllamaExampleGenerator : IExampleGenerator
     }
     public async Task<List<string>> GenerateAsync(
         string word,
-        string translation)
+        string? translation)
     {
+        var translationGuidance = string.IsNullOrWhiteSpace(translation)
+            ? "No translation is available. Infer the most common meaning from the English word and use it consistently."
+            : $"Russian translation: \"{translation}\"";
         var prompt = $"""
        You are an experienced English vocabulary teacher.
 
@@ -23,7 +26,7 @@ public class OllamaExampleGenerator : IExampleGenerator
 
 
     Target word: "{word}"
-    Russian translation: "{translation}"
+    {translationGuidance}
     ENGLISH LEVEL: B1-B2
 
     STRICT RULES:

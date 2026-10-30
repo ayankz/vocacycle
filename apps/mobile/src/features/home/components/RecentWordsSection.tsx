@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ChevronRightIcon } from '@/shared/icons/ChevronRightIcon';
@@ -8,28 +9,39 @@ import { RecentWordRow, type RecentWord } from './RecentWordRow';
 type RecentWordsSectionProps = {
   words: readonly RecentWord[];
   totalWordCount: number;
-  onViewAll: () => void;
+  loading?: boolean;
+  error?: string | null;
   onPronounce: (word: RecentWord) => void;
 };
 
-export function RecentWordsSection({ words, totalWordCount, onViewAll, onPronounce }: RecentWordsSectionProps) {
+const COLLAPSED_WORD_COUNT = 4;
+
+export function RecentWordsSection({ words, totalWordCount, loading = false, error, onPronounce }: RecentWordsSectionProps) {
+  const [expanded, setExpanded] = useState(false);
+  const canExpand = totalWordCount > COLLAPSED_WORD_COUNT;
+  const visibleWords = expanded ? words : words.slice(0, COLLAPSED_WORD_COUNT);
+  const actionLabel = expanded ? 'Show less' : `View all (${totalWordCount})`;
+
   return (
     <View style={styles.section}>
       <View style={styles.header}>
         <AppText accessibilityRole="header" variant="sectionHeading">Recent Words</AppText>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`View all (${totalWordCount})`}
-          onPress={onViewAll}
-          hitSlop={8}
-          style={({ pressed }) => [styles.viewAll, pressed && styles.pressed]}
-        >
-          <AppText color="#8B8E9B" style={styles.actionText}>View all ({totalWordCount})</AppText>
-          <ChevronRightIcon />
-        </Pressable>
+        {canExpand && <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={actionLabel}
+            onPress={() => setExpanded((isExpanded) => !isExpanded)}
+            hitSlop={8}
+            style={({ pressed }) => [styles.viewAll, pressed && styles.pressed]}
+          >
+            <AppText color="#8B8E9B" style={styles.actionText}>{actionLabel}</AppText>
+            {!expanded && <ChevronRightIcon />}
+          </Pressable>}
       </View>
       <View style={styles.words}>
-        {words.map((word) => <RecentWordRow key={word.id} word={word} onPronounce={onPronounce} />)}
+        {visibleWords.map((word) => <RecentWordRow key={word.id} word={word} onPronounce={onPronounce} />)}
+        {loading && <AppText variant="caption" color="#8C909E">Loading saved words…</AppText>}
+        {!loading && error && <AppText variant="caption" color="#F87171">{error}</AppText>}
+        {!loading && !error && words.length === 0 && <AppText variant="caption" color="#8C909E">No saved words yet.</AppText>}
       </View>
     </View>
   );
