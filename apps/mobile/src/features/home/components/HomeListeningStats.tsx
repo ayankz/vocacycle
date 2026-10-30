@@ -3,6 +3,7 @@ import { StyleSheet, View } from 'react-native';
 
 import { radius } from '@/shared/theme/radius';
 import { spacing } from '@/shared/theme/spacing';
+import { colors } from '@/shared/theme/colors';
 import { AppText } from '@/shared/ui/AppText';
 
 export type HomeListeningStatistics = {
@@ -48,7 +49,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: '#23252C',
+    borderColor: colors.cardBorder,
     backgroundColor: '#16171C',
   },
   metric: { flexShrink: 1, flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'baseline', columnGap: 6 },
