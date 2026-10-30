@@ -1,3 +1,4 @@
+import { useCallback, useEffect, useState } from 'react';
 import { Alert, ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -8,11 +9,39 @@ import { ContinueListeningCard } from '@/features/home/components/ContinueListen
 import { mockContinueListeningSession } from '@/features/home/data/continue-listening.mock';
 import { WordsReadyForAudioCard } from '@/features/home/components/WordsReadyForAudioCard';
 import { RecentWordsSection } from '@/features/home/components/RecentWordsSection';
-import { mockRecentWords, mockTotalWordCount } from '@/features/home/data/recent-words.mock';
+import type { RecentWord } from '@/features/home/components/RecentWordRow';
+import { getWords } from '@/features/home/data/words-api';
 import { HomeListeningStats } from '@/features/home/components/HomeListeningStats';
 import { mockListeningStatistics } from '@/features/home/data/listening-statistics.mock';
 
 export default function HomeScreen() {
+  const [recentWords, setRecentWords] = useState<RecentWord[]>([]);
+  const [totalWordCount, setTotalWordCount] = useState(0);
+  const [wordsLoading, setWordsLoading] = useState(true);
+  const [wordsError, setWordsError] = useState<string | null>(null);
+
+  const refreshWords = useCallback(async () => {
+    setWordsLoading(true);
+    try {
+      const words = await getWords();
+      const newestFirst = [...words].sort((a, b) => b.id - a.id);
+      setTotalWordCount(words.length);
+      setRecentWords(newestFirst.map(({ id, text, translation }) => ({
+        id: String(id),
+        word: text,
+        translation,
+        phonetic: null,
+      })));
+      setWordsError(null);
+    } catch (error) {
+      setWordsError(error instanceof Error ? error.message : 'Could not load saved words.');
+    } finally {
+      setWordsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { void refreshWords(); }, [refreshWords]);
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView
@@ -23,7 +52,7 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
       >
         <HomeHeader />
-        <QuickAddWord />
+        <QuickAddWord onAdded={() => void refreshWords()} />
         <ContinueListeningCard
           session={mockContinueListeningSession}
           onPlay={() => Alert.alert('Playback coming soon', 'Audio playback is not available yet.')}
@@ -33,9 +62,10 @@ export default function HomeScreen() {
           onCreateAudio={() => Alert.alert('Create Audio', 'Audio generation is not available yet.')}
         />
         <RecentWordsSection
-          words={mockRecentWords}
-          totalWordCount={mockTotalWordCount}
-          onViewAll={() => Alert.alert('Recent Words', 'Viewing all words is not available yet.')}
+          words={recentWords}
+          totalWordCount={totalWordCount}
+          loading={wordsLoading}
+          error={wordsError}
           onPronounce={(word) => Alert.alert(word.word, 'Pronunciation playback is not available yet.')}
         />
         <HomeListeningStats statistics={mockListeningStatistics} />
