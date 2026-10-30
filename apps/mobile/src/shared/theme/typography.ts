@@ -1,4 +1,21 @@
 export const typography = {
+    sectionHeading: {
+        fontSize: 17,
+        lineHeight: 25.5,
+        letterSpacing: -0.425,
+        fontWeight: '700',
+    },
+    compactTitle: {
+        fontSize: 15,
+        lineHeight: 22.5,
+        letterSpacing: -0.375,
+        fontWeight: '700',
+    },
+    caption: {
+        fontSize: 12,
+        lineHeight: 16,
+        fontWeight: '400',
+    },
     display: {
         fontSize: 32,
         lineHeight: 38,

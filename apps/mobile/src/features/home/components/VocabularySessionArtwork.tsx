@@ -2,6 +2,8 @@ import { useId } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Svg, { Defs, LinearGradient, Path, RadialGradient, Rect, Stop } from 'react-native-svg';
 
+import { radius } from '@/shared/theme/radius';
+import { spacing } from '@/shared/theme/spacing';
 import { AppText } from '@/shared/ui/AppText';
 
 export function VocabularySessionArtwork({ sessionNumber }: { sessionNumber: number }) {
@@ -36,12 +38,12 @@ const styles = StyleSheet.create({
   cover: {
     width: 80,
     height: 96,
-    borderRadius: 12,
+    borderRadius: radius.md,
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.1)',
     justifyContent: 'flex-end',
-    padding: 8,
+    padding: spacing[2],
   },
   label: {
     fontFamily: 'SpaceGrotesk_700Bold',

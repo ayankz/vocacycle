@@ -23,10 +23,10 @@ export function RecentWordRow({ word, onPronounce }: RecentWordRowProps) {
     <View style={styles.row}>
       <View style={styles.copy}>
         <View style={styles.wordLine}>
-          <AppText style={styles.word}>{word.word}</AppText>
-          <AppText color="#707482" style={styles.phonetic}>{word.phonetic}</AppText>
+          <AppText variant="compactTitle" style={styles.word}>{word.word}</AppText>
+          <AppText color={colors.textSubtle} style={styles.phonetic}>{word.phonetic}</AppText>
         </View>
-        <AppText numberOfLines={1} color="#8C909E" style={styles.translation}>
+        <AppText variant="caption" numberOfLines={1} color={colors.textCaption} style={styles.translation}>
           {word.translation}
         </AppText>
       </View>
@@ -51,15 +51,15 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     padding: 14,
     backgroundColor: '#17181D',
-    borderColor: '#23252C',
+    borderColor: colors.cardBorder,
     borderWidth: 1,
     borderRadius: radius.lg,
   },
   copy: { flex: 1, minWidth: 0, paddingRight: spacing[2] },
   wordLine: { flexDirection: 'row', alignItems: 'baseline', flexWrap: 'wrap', columnGap: spacing[2] },
-  word: { flexShrink: 1, fontFamily: 'SpaceGrotesk_700Bold', fontSize: 15, lineHeight: 22.5, letterSpacing: -0.375 },
+  word: { flexShrink: 1 },
   phonetic: { flexShrink: 1, fontFamily: 'JetBrainsMono_400Regular', fontSize: 12, lineHeight: 16 },
-  translation: { marginTop: 2, fontSize: 12, lineHeight: 16 },
+  translation: { marginTop: 2 },
   playButton: { width: 32, height: 32, borderRadius: radius.full, backgroundColor: '#292B34', justifyContent: 'center', alignItems: 'center' },
   pressed: { backgroundColor: '#343642', transform: [{ scale: 0.95 }] },
   playGlyph: { transform: [{ translateX: 2 }] },

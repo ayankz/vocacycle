@@ -30,11 +30,11 @@ export function WordsReadyForAudioCard({ wordCount, onCreateAudio }: WordsReadyF
       <View style={styles.copy}>
         <View style={styles.headingRow}>
           <View style={styles.dot} />
-          <AppText accessibilityRole="header" style={styles.heading}>
+          <AppText accessibilityRole="header" variant="compactTitle" style={styles.heading}>
             {wordCount} {wordCount === 1 ? 'word' : 'words'} ready for audio
           </AppText>
         </View>
-        <AppText color="#8C909E" style={styles.description}>
+        <AppText color={colors.textCaption} style={styles.description}>
           Turn your saved words into a listening session.
         </AppText>
       </View>
@@ -62,7 +62,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#1B1915',
     borderWidth: 1,
     borderColor: 'rgba(229, 169, 60, 0.3)',
-    borderRadius: 22,
+    borderRadius: radius.card,
     overflow: 'hidden',
     boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)',
   },
@@ -71,10 +71,6 @@ const styles = StyleSheet.create({
   dot: { width: 8, height: 8, borderRadius: radius.full, backgroundColor: colors.primary },
   heading: {
     flex: 1,
-    fontFamily: 'SpaceGrotesk_700Bold',
-    fontSize: 15,
-    lineHeight: 22.5,
-    letterSpacing: -0.375,
   },
   description: { marginTop: spacing[1], fontSize: 12, lineHeight: 16.5 },
   button: {

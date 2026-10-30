@@ -16,6 +16,9 @@ export const colors = {
     textOnPrimary: '#0D0E11',
 
     border: 'rgba(255, 255, 255, 0.08)',
+    cardBorder: '#23252C',
+    textCaption: '#8C909E',
+    textSubtle: '#707482',
 
     success: '#4ADE80',
     error: '#F87171',

@@ -36,19 +36,19 @@ export function ContinueListeningCard({ session, onPlay }: ContinueListeningCard
 
   return (
     <View style={styles.section}>
-      <AppText accessibilityRole="header" style={styles.heading}>Continue Listening</AppText>
+      <AppText accessibilityRole="header" variant="sectionHeading" style={styles.heading}>Continue Listening</AppText>
       <View style={styles.card}>
         <View style={styles.sessionRow}>
           <VocabularySessionArtwork sessionNumber={session.sessionNumber} />
           <View style={styles.metadata}>
             <AppText numberOfLines={1} style={styles.title}>{session.title}</AppText>
             <AppText style={styles.wordRange} color="#D1D5DB">{session.wordRange}</AppText>
-            <AppText style={styles.summary} color="#707584">
+            <AppText variant="caption" style={styles.summary} color="#707584">
               {session.wordCount} words • {session.durationMinutes} min
             </AppText>
             <View style={styles.currentWord}>
               <AppText numberOfLines={1} style={styles.word}>{session.currentWord}</AppText>
-              <AppText numberOfLines={1} style={styles.translation} color="#8C909E">
+              <AppText variant="caption" numberOfLines={1} style={styles.translation} color={colors.textCaption}>
                 {session.translation}
               </AppText>
             </View>
@@ -72,8 +72,8 @@ export function ContinueListeningCard({ session, onPlay }: ContinueListeningCard
             <View style={[styles.fill, { width: `${progress * 100}%` }]} />
           </View>
           <View style={styles.timestamps}>
-            <AppText style={styles.time} color="#707482">{formatTime(position)}</AppText>
-            <AppText style={styles.time} color="#707482">{formatTime(duration)}</AppText>
+            <AppText style={styles.time} color={colors.textSubtle}>{formatTime(position)}</AppText>
+            <AppText style={styles.time} color={colors.textSubtle}>{formatTime(duration)}</AppText>
           </View>
         </View>
       </View>
@@ -83,16 +83,16 @@ export function ContinueListeningCard({ session, onPlay }: ContinueListeningCard
 
 const styles = StyleSheet.create({
   section: { gap: 10 },
-  heading: { fontFamily: 'SpaceGrotesk_700Bold', fontSize: 17, lineHeight: 25.5, letterSpacing: -0.425, paddingHorizontal: 2 },
-  card: { padding: spacing[4], borderRadius: 22, borderWidth: 1, borderColor: '#23252C', backgroundColor: '#18191E', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)' },
+  heading: { paddingHorizontal: 2 },
+  card: { padding: spacing[4], borderRadius: radius.card, borderWidth: 1, borderColor: colors.cardBorder, backgroundColor: '#18191E', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)' },
   sessionRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing[3] },
   metadata: { flex: 1, minWidth: 0, paddingRight: spacing[1] },
   title: { fontFamily: 'SpaceGrotesk_700Bold', fontSize: 16, lineHeight: 24, letterSpacing: -0.4 },
   wordRange: { fontFamily: 'SpaceGrotesk_500Medium', fontSize: 13, lineHeight: 18 },
-  summary: { fontSize: 12, lineHeight: 16, marginTop: 2 },
+  summary: { marginTop: 2 },
   currentWord: { marginTop: 10 },
   word: { fontFamily: 'SpaceGrotesk_700Bold', fontSize: 14, lineHeight: 16, letterSpacing: -0.35 },
-  translation: { fontSize: 12, lineHeight: 16, marginTop: 2 },
+  translation: { marginTop: 2 },
   playButton: { width: 48, height: 48, borderRadius: radius.full, alignSelf: 'center', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary, boxShadow: '0 10px 15px -3px rgba(245, 158, 11, 0.2)' },
   pressed: { backgroundColor: colors.primaryPressed, transform: [{ scale: 0.95 }] },
   playGlyph: { transform: [{ translateX: 2 }] },

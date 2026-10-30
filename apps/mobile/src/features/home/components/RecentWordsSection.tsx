@@ -16,7 +16,7 @@ export function RecentWordsSection({ words, totalWordCount, onViewAll, onPronoun
   return (
     <View style={styles.section}>
       <View style={styles.header}>
-        <AppText accessibilityRole="header" style={styles.heading}>Recent Words</AppText>
+        <AppText accessibilityRole="header" variant="sectionHeading">Recent Words</AppText>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={`View all (${totalWordCount})`}
@@ -38,7 +38,6 @@ export function RecentWordsSection({ words, totalWordCount, onViewAll, onPronoun
 const styles = StyleSheet.create({
   section: { gap: 10 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: spacing[2], paddingHorizontal: 2 },
-  heading: { fontFamily: 'SpaceGrotesk_700Bold', fontSize: 17, lineHeight: 25.5, letterSpacing: -0.425 },
   viewAll: { flexDirection: 'row', alignItems: 'center', gap: spacing[1] },
   actionText: { fontFamily: 'SpaceGrotesk_600SemiBold', fontSize: 12, lineHeight: 16 },
   pressed: { opacity: 0.65 },
