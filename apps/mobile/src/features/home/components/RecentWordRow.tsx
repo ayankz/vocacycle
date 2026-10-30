@@ -11,6 +11,7 @@ export type RecentWord = {
   word: string;
   phonetic: string | null;
   translation: string | null;
+  translationStatus?: string;
 };
 
 type RecentWordRowProps = {
@@ -26,7 +27,7 @@ export function RecentWordRow({ word, onPronounce }: RecentWordRowProps) {
           <AppText variant="compactTitle" style={styles.word}>{word.word}</AppText>
           {word.phonetic && <AppText color={colors.textSubtle} style={styles.phonetic}>{word.phonetic}</AppText>}
         </View>
-        {word.translation && <AppText variant="caption" numberOfLines={1} color={colors.textCaption} style={styles.translation}>{word.translation}</AppText>}
+        {(word.translation || word.translationStatus) && <AppText variant="caption" numberOfLines={1} color={colors.textCaption} style={styles.translation}>{word.translation || word.translationStatus}</AppText>}
       </View>
       <Pressable
         accessibilityRole="button"

@@ -4,7 +4,54 @@
 
 ### Current repository state
 
-Only project documentation and repository conventions exist. No mobile app, API, database schema, external integration, or deployed infrastructure exists yet.
+The repository includes an Expo mobile app, ASP.NET Core API, EF Core/PostgreSQL persistence, and an existing Redis-backed audio worker. Word translation is implemented as an independent consumer in the same worker process. Cloud deployment remains future work.
+
+### Word translation (Issue #18)
+
+`POST /words` saves first, then makes a best-effort bounded publish of `wordId` to
+`vocacycle:translation:jobs`. Redis failure is logged and does not change the 201
+response. Existing API contracts and the nullable `Word.Translation` field remain
+unchanged. Add does not generate examples.
+
+The existing worker host runs an independent `TranslationWorker` alongside its
+unchanged audio consumer. Its `translation-workers` group is created automatically
+at `0-0` to consume jobs queued before startup. `IWordTranslator` selects a provider
+using worker configuration `Translation:Provider`: by default Ollama in Development
+and Google in Production (and other environments). Explicit values override the
+default; unknown values fail startup, and provider errors never cause fallback.
+
+Production uses Google Cloud Translation Basic v2 with explicit `en` → `ru` and
+plain text. The API key stays in worker configuration and is sent in a redacted
+`x-goog-api-key` header, never in URLs or mobile configuration. Development uses
+the existing named Ollama HTTP client and `qwen3:1.7b`, with thinking disabled,
+temperature zero, a fixed seed, and a 64-token output cap. A JSON schema requests
+one translation field. Completed output must contain exactly that field with a
+short Russian phrase (1–4 words, at most 64 characters); empty output, additional
+fields, markup, prose and common explanatory prefixes are rejected before saving.
+Structural validation does not guarantee translation quality from the small model.
+
+Google HTTP attempts time out after 5 seconds. Ollama reuses its existing HTTP
+configuration; both providers retain the worker's 15-second processing bound.
+Failures remain pending and can be reclaimed after 60 seconds. Redis delivery
+counts bound processing to three deliveries across restarts. Successful, invalid,
+or exhausted jobs are acknowledged. Acknowledged entries remain in the stream;
+retention is not automated. Existing translations are skipped, and conditional
+updates preserve a translation written concurrently.
+
+Home refreshes Recent Words on every focus and after Add. Only words added during
+the current mounted Home lifetime receive polling budgets. One shared timer polls
+`GET /words` two seconds after the preceding request settles, up to five attempts
+per waiting word. Network failures and eight-second request timeouts count toward
+the budget. A successful translation removes its word from polling; exhausted
+words display `Translation unavailable`. Blur/unmount clears the timer and aborts
+the request. Returning Home refreshes immediately and resumes remaining budgets,
+without resetting exhausted ones. Lists remain visible during background requests.
+
+Trade-off: database persistence and Redis publication are not atomic. Redis outage
+or a crash between save and publish can leave a word untranslated. No outbox,
+automatic backfill, or schema change is introduced in this slice. The mobile
+unavailable label means its waiting budget ended, not a durable backend status;
+translation may appear on a later focus refresh.
 
 ### Chosen technical direction
 
@@ -48,7 +95,7 @@ The timeline will map playback time to the current word, translation, example se
 4. Process and assemble speech into a continuous recording with FFmpeg.
 5. Produce matching timeline metadata and make the completed session available to the mobile player.
 
-This is a conceptual pipeline, not an implemented service design. Translation sourcing and provider choices remain open. External AI, TTS, and storage providers will be isolated behind focused interfaces when integrations are added.
+This is a conceptual pipeline, not an implemented service design. Word translation uses Google Cloud Translation Basic v2 in Production and Ollama in Development (English to Russian); other provider decisions remain open. External AI, TTS, and storage providers will be isolated behind focused interfaces when integrations are added.
 
 ### Playback and infrastructure evolution
 

@@ -1,4 +1,3 @@
-import { useCallback, useEffect, useState } from 'react';
 import { Alert, ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -9,38 +8,12 @@ import { ContinueListeningCard } from '@/features/home/components/ContinueListen
 import { mockContinueListeningSession } from '@/features/home/data/continue-listening.mock';
 import { WordsReadyForAudioCard } from '@/features/home/components/WordsReadyForAudioCard';
 import { RecentWordsSection } from '@/features/home/components/RecentWordsSection';
-import type { RecentWord } from '@/features/home/components/RecentWordRow';
-import { getWords } from '@/features/home/data/words-api';
+import { useRecentWords } from '@/features/home/hooks/use-recent-words';
 import { HomeListeningStats } from '@/features/home/components/HomeListeningStats';
 import { mockListeningStatistics } from '@/features/home/data/listening-statistics.mock';
 
 export default function HomeScreen() {
-  const [recentWords, setRecentWords] = useState<RecentWord[]>([]);
-  const [totalWordCount, setTotalWordCount] = useState(0);
-  const [wordsLoading, setWordsLoading] = useState(true);
-  const [wordsError, setWordsError] = useState<string | null>(null);
-
-  const refreshWords = useCallback(async () => {
-    setWordsLoading(true);
-    try {
-      const words = await getWords();
-      const newestFirst = [...words].sort((a, b) => b.id - a.id);
-      setTotalWordCount(words.length);
-      setRecentWords(newestFirst.map(({ id, text, translation }) => ({
-        id: String(id),
-        word: text,
-        translation,
-        phonetic: null,
-      })));
-      setWordsError(null);
-    } catch (error) {
-      setWordsError(error instanceof Error ? error.message : 'Could not load saved words.');
-    } finally {
-      setWordsLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { void refreshWords(); }, [refreshWords]);
+  const { recentWords, totalWordCount, wordsLoading, wordsError, onAdded } = useRecentWords();
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -53,7 +26,7 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
       >
         <HomeHeader />
-        <QuickAddWord onAdded={() => void refreshWords()} />
+        <QuickAddWord onAdded={onAdded} />
         <ContinueListeningCard
           session={mockContinueListeningSession}
           onPlay={() => Alert.alert('Playback coming soon', 'Audio playback is not available yet.')}

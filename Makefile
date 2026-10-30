@@ -1,6 +1,6 @@
-COSYVOICE_DIR := /Users/ayan_dev/Desktop/coding_ayan/cosyvoice-test/CosyVoice
-STORAGE_DIR := $(CURDIR)/storage/audio
-COSYVOICE_PYTHON := /Users/ayan_dev/Desktop/coding_ayan/cosyvoice-test/.venv/bin/python
+COSYVOICE_DIR ?= $(CURDIR)/../cosyvoice-test/CosyVoice
+STORAGE_DIR ?= $(CURDIR)/storage/audio
+COSYVOICE_PYTHON ?= $(COSYVOICE_DIR)/../.venv/bin/python
 
 .DEFAULT_GOAL := help
 .PHONY: db-up db-down db-status db-shell
@@ -20,9 +20,9 @@ help:
 	@echo "  make db-shell    Open PostgreSQL CLI"
 
 api:
-	dotnet run --project apps/api/VocaCycle.Api.csproj
+	dotnet run --project apps/api/VocaCycle.Api.csproj --urls "http://0.0.0.0:5126"
 worker:
-	VOCACYCLE_STORAGE=$(STORAGE_DIR) dotnet run --project apps/worker/VocaCycle.Worker.csproj
+	VOCACYCLE_STORAGE="$(STORAGE_DIR)" dotnet run --project apps/worker/VocaCycle.Worker.csproj
 
 redis-up:
 	docker start vocacycle-redis
@@ -33,8 +33,8 @@ redis-down:
 redis-logs:
 	docker logs -f vocacycle-redis
 tts:
-	cd $(COSYVOICE_DIR) && $(COSYVOICE_PYTHON) -m uvicorn main:app \
-		--app-dir $(CURDIR)/apps/tts \
+	cd "$(COSYVOICE_DIR)" && "$(COSYVOICE_PYTHON)" -m uvicorn main:app \
+		--app-dir "$(CURDIR)/apps/tts" \
 		--host 127.0.0.1 \
 		--port 8001
 

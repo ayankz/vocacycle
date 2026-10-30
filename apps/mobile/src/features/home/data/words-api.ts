@@ -15,8 +15,8 @@ async function errorMessage(response: Response) {
   return response.status === 409 ? 'This word has already been saved.' : `Could not save word (HTTP ${response.status}). Please try again.`;
 }
 
-export async function getWords(): Promise<WordDto[]> {
-  const response = await fetch(url('/words'));
+export async function getWords(signal?: AbortSignal): Promise<WordDto[]> {
+  const response = await fetch(url('/words'), { signal });
   if (!response.ok) throw new Error(await errorMessage(response));
   return response.json() as Promise<WordDto[]>;
 }
