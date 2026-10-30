@@ -33,10 +33,9 @@ app.MapGet("/health", () => new { status = "ok" });
 
 app.MapPost("/words", async (CreateWordRequest request, VocaCycleDbContext db, IConnectionMultiplexer redis) =>
 {
-    if (string.IsNullOrWhiteSpace(request.Text)
-    || string.IsNullOrWhiteSpace(request.Translation))
+    if (string.IsNullOrWhiteSpace(request.Text))
     {
-        return Results.BadRequest(new { error = "Text and Translation are required." });
+        return Results.BadRequest(new { error = "Text is required." });
     }
     var normalizedText = request.Text.Trim().ToLowerInvariant();
 
@@ -55,7 +54,9 @@ app.MapPost("/words", async (CreateWordRequest request, VocaCycleDbContext db, I
     var word = new Word
     {
         Text = normalizedText,
-        Translation = request.Translation.Trim()
+        Translation = string.IsNullOrWhiteSpace(request.Translation)
+            ? null
+            : request.Translation.Trim()
     };
 
     db.Words.Add(word);

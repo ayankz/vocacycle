@@ -79,7 +79,6 @@ namespace VocaCycle.Api.Migrations
                         .HasColumnType("text");
 
                     b.Property<string>("Translation")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.HasKey("Id");

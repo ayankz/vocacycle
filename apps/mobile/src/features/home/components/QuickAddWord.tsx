@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import { CheckIcon } from '@/shared/icons/CheckIcon';
 import { PlusIcon } from '@/shared/icons/PlusIcon';
@@ -8,19 +8,32 @@ import { colors } from '@/shared/theme/colors';
 import { radius } from '@/shared/theme/radius';
 import { spacing } from '@/shared/theme/spacing';
 import { AppText } from '@/shared/ui/AppText';
+import { createWord } from '@/features/home/data/words-api';
 
-export function QuickAddWord() {
+type QuickAddWordProps = { onAdded: () => void };
+
+export function QuickAddWord({ onAdded }: QuickAddWordProps) {
   const [word, setWord] = useState('');
-  // Reference success state; additions are local only until persistence exists.
-  const [lastAddedWord, setLastAddedWord] = useState('reluctant');
+  const [feedback, setFeedback] = useState<{ message: string; error: boolean } | null>(null);
+  const [submitting, setSubmitting] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
 
-  function addWord() {
+  async function addWord() {
     const trimmedWord = word.trim();
-    if (!trimmedWord) return;
+    if (!trimmedWord || submitting) return;
 
-    setLastAddedWord(trimmedWord);
-    setWord('');
+    setSubmitting(true);
+    setFeedback(null);
+    try {
+      const saved = await createWord(trimmedWord);
+      setWord('');
+      setFeedback({ message: `${saved.text} added`, error: false });
+      onAdded();
+    } catch (error) {
+      setFeedback({ message: error instanceof Error ? error.message : 'Could not save word. Please try again.', error: true });
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -32,10 +45,11 @@ export function QuickAddWord() {
           placeholder="Enter an English word..."
           placeholderTextColor="#646876"
           value={word}
+          editable={!submitting}
           onChangeText={setWord}
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
-          onSubmitEditing={addWord}
+          onSubmitEditing={() => void addWord()}
           submitBehavior="submit"
           returnKeyType="done"
           autoCapitalize="none"
@@ -47,20 +61,18 @@ export function QuickAddWord() {
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Add Word"
-          onPress={addWord}
+          onPress={() => void addWord()}
+          disabled={submitting || !word.trim()}
           hitSlop={2}
           style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}
         >
-          <PlusIcon />
+          {submitting ? <ActivityIndicator color={colors.textOnPrimary} /> : <PlusIcon />}
         </Pressable>
       </View>
-      <View style={styles.feedback} accessibilityLiveRegion="polite">
-        <CheckIcon color={colors.primary} />
-        <AppText variant="label" color={colors.primary} style={styles.feedbackText}>
-          <AppText variant="label" style={styles.addedWord}>{lastAddedWord}</AppText>
-          {' added'}
-        </AppText>
-      </View>
+      {feedback && <View style={styles.feedback} accessibilityLiveRegion="polite">
+        {!feedback.error && <CheckIcon color={colors.primary} />}
+        <AppText variant="label" color={feedback.error ? colors.error : colors.primary} style={styles.feedbackText}>{feedback.message}</AppText>
+      </View>}
     </View>
   );
 }
@@ -110,9 +122,4 @@ const styles = StyleSheet.create({
     paddingTop: spacing[2],
   },
   feedbackText: { flexShrink: 1, fontSize: 11, letterSpacing: -0.275 },
-  addedWord: {
-    fontFamily: 'SpaceGrotesk_600SemiBold',
-    fontSize: 11,
-    letterSpacing: -0.275,
-  },
 });

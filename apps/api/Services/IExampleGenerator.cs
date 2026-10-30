@@ -4,5 +4,5 @@ public interface IExampleGenerator
 {
     Task<List<string>> GenerateAsync(
         string word,
-        string translation);
+        string? translation);
 }
