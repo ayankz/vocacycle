@@ -25,3 +25,11 @@ VocaCycle is a mobile-first vocabulary listening app: ADD → GENERATE → LISTE
 - Do not implement future features prematurely or commit secrets.
 - The developer knows React/Angular/TypeScript but is learning C#/.NET, AWS, and React Native. Explain important .NET decisions and briefly state trade-offs; avoid large unexplained architecture changes.
 - After implementation, run appropriate available builds/tests and report results and any checks that could not run. Do not invent commands for applications that do not exist.
+
+## GitHub issues and pull requests
+
+- Every pull request must reference the relevant GitHub issue(s) in its description.
+- When the PR fully satisfies an issue's acceptance criteria, use a closing keyword such as `Closes #123` in the PR description so GitHub automatically closes it when merged into the default branch.
+- For partial work or related issues that must remain open, use `Refs #123` instead; do not use a closing keyword.
+- Do not mark issues complete solely because the UI is visually implemented when acceptance criteria still require API integration, navigation, playback, or testing.
+- Include a short summary and validation results in each PR description. Prefer traceable PR links over manually closing issues without implementation references.
