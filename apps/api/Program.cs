@@ -19,9 +19,17 @@ client =>
     client.BaseAddress = new Uri("http://localhost:11434");
 });
 
-builder.Services.AddSingleton<IConnectionMultiplexer>(
-    _ => ConnectionMultiplexer.Connect("localhost:6379")
-);
+builder.Services.AddSingleton<IConnectionMultiplexer>(_ =>
+{
+    var options = ConfigurationOptions.Parse(
+        builder.Configuration.GetConnectionString("Redis") ?? "localhost:6379");
+    options.AbortOnConnectFail = false;
+    options.ConnectRetry = 0;
+    options.ConnectTimeout = 500;
+    options.AsyncTimeout = 500;
+    options.BacklogPolicy = BacklogPolicy.FailFast;
+    return ConnectionMultiplexer.Connect(options);
+});
 
 var app = builder.Build();
 
@@ -31,7 +39,7 @@ app.UseHttpsRedirection();
 
 app.MapGet("/health", () => new { status = "ok" });
 
-app.MapPost("/words", async (CreateWordRequest request, VocaCycleDbContext db, IConnectionMultiplexer redis) =>
+app.MapPost("/words", async (CreateWordRequest request, VocaCycleDbContext db, IConnectionMultiplexer redis, ILogger<Program> logger) =>
 {
     if (string.IsNullOrWhiteSpace(request.Text))
     {
@@ -75,6 +83,20 @@ app.MapPost("/words", async (CreateWordRequest request, VocaCycleDbContext db, I
         {
             error = "Word already exists."
         });
+    }
+
+    // Persistence succeeds independently of this best-effort enqueue.
+    if (string.IsNullOrWhiteSpace(word.Translation))
+    {
+        try
+        {
+            await redis.GetDatabase().StreamAddAsync(
+                "vocacycle:translation:jobs", "wordId", word.Id.ToString());
+        }
+        catch (RedisException)
+        {
+            logger.LogWarning("Could not enqueue translation for Word {WordId}.", word.Id);
+        }
     }
 
     return Results.Created($"/words/{word.Id}", word);

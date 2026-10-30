@@ -8,9 +8,9 @@ import { colors } from '@/shared/theme/colors';
 import { radius } from '@/shared/theme/radius';
 import { spacing } from '@/shared/theme/spacing';
 import { AppText } from '@/shared/ui/AppText';
-import { createWord } from '@/features/home/data/words-api';
+import { createWord, type WordDto } from '@/features/home/data/words-api';
 
-type QuickAddWordProps = { onAdded: () => void };
+type QuickAddWordProps = { onAdded: (word: WordDto) => void };
 
 export function QuickAddWord({ onAdded }: QuickAddWordProps) {
   const [word, setWord] = useState('');
@@ -28,7 +28,7 @@ export function QuickAddWord({ onAdded }: QuickAddWordProps) {
       const saved = await createWord(trimmedWord);
       setWord('');
       setFeedback({ message: `${saved.text} added`, error: false });
-      onAdded();
+      onAdded(saved);
     } catch (error) {
       setFeedback({ message: error instanceof Error ? error.message : 'Could not save word. Please try again.', error: true });
     } finally {
