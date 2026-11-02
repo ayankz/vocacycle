@@ -9,11 +9,13 @@ import { mockContinueListeningSession } from '@/features/home/data/continue-list
 import { WordsReadyForAudioCard } from '@/features/home/components/WordsReadyForAudioCard';
 import { RecentWordsSection } from '@/features/home/components/RecentWordsSection';
 import { useRecentWords } from '@/features/home/hooks/use-recent-words';
+import { useWordPronunciation } from '@/features/home/hooks/use-word-pronunciation';
 import { HomeListeningStats } from '@/features/home/components/HomeListeningStats';
 import { mockListeningStatistics } from '@/features/home/data/listening-statistics.mock';
 
 export default function HomeScreen() {
   const { recentWords, totalWordCount, wordsLoading, wordsError, onAdded } = useRecentWords();
+  const { pronunciation, pronounce } = useWordPronunciation();
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -40,7 +42,8 @@ export default function HomeScreen() {
           totalWordCount={totalWordCount}
           loading={wordsLoading}
           error={wordsError}
-          onPronounce={(word) => Alert.alert(word.word, 'Pronunciation playback is not available yet.')}
+          onPronounce={pronounce}
+          pronunciation={pronunciation}
         />
         <HomeListeningStats statistics={mockListeningStatistics} />
       </ScrollView>
