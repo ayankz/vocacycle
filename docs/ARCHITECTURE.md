@@ -10,8 +10,7 @@ The repository includes an Expo mobile app, ASP.NET Core API, EF Core/PostgreSQL
 
 `POST /words` saves first, then makes a best-effort bounded publish of `wordId` to
 `vocacycle:translation:jobs`. Redis failure is logged and does not change the 201
-response. Existing API contracts and the nullable `Word.Translation` field remain
-unchanged. Add does not generate examples.
+response. Word responses expose nullable `translation` and `ipa` fields. Add does not generate examples.
 
 The existing worker host runs an independent `TranslationWorker` alongside its
 unchanged audio consumer. Its `translation-workers` group is created automatically
@@ -33,7 +32,7 @@ Structural validation does not guarantee translation quality from the small mode
 Google HTTP attempts time out after 5 seconds. Ollama reuses its existing HTTP
 configuration; both providers retain the worker's 15-second processing bound.
 Failures remain pending and can be reclaimed after 60 seconds. Redis delivery
-counts bound processing to three deliveries across restarts. Successful, invalid,
+counts bound processing to three deliveries across restarts. Completed, invalid,
 or exhausted jobs are acknowledged. Acknowledged entries remain in the stream;
 retention is not automated. Existing translations are skipped, and conditional
 updates preserve a translation written concurrently.
@@ -42,7 +41,7 @@ Home refreshes Recent Words on every focus and after Add. Only words added durin
 the current mounted Home lifetime receive polling budgets. One shared timer polls
 `GET /words` two seconds after the preceding request settles, up to five attempts
 per waiting word. Network failures and eight-second request timeouts count toward
-the budget. A successful translation removes its word from polling; exhausted
+the budget. A word with both translation and IPA leaves polling; exhausted
 words display `Translation unavailable`. Blur/unmount clears the timer and aborts
 the request. Returning Home refreshes immediately and resumes remaining budgets,
 without resetting exhausted ones. Lists remain visible during background requests.
@@ -52,6 +51,43 @@ or a crash between save and publish can leave a word untranslated. No outbox,
 automatic backfill, or schema change is introduced in this slice. The mobile
 unavailable label means its waiting budget ended, not a durable backend status;
 translation may appear on a later focus refresh.
+
+### Dictionary IPA enrichment (Issue #19)
+
+The existing `TranslationWorker` now enriches both translation and IPA on the same
+stream, group, and delivery. Add enqueues even when a translation was supplied,
+because IPA is still missing. There is no new queue, hosted service, or provider
+for generated IPA. The typed `DictionaryIpaClient` calls Free Dictionary API with
+an encoded English word and a five-second HTTP timeout, without credentials.
+
+Each delivery attempts translation and IPA sequentially with independent failure
+boundaries, database contexts, and 15-second processing deadlines. A translation
+timeout cannot consume IPA's deadline. Either transient failure leaves the message
+pending until the existing 60-second reclaim and three-delivery limit. Persisted
+nonempty fields skip their providers. Each conditional SQL update touches only its
+own empty field, preserving concurrent writes and safely ignoring deleted words.
+Shutdown cancellation leaves the delivery pending.
+
+IPA selection prefers valid `phonetics[].text`, then entry-level `phonetic`.
+Delimited candidates take priority within each source; response order breaks ties.
+The parser preserves notation, rejects markup, URLs, mismatched delimiters,
+truncated hyphen forms and unsupported characters. This is conservative structural
+validation, not a phonology engine. 404 and successful responses without suitable
+IPA complete the lookup with null; malformed JSON, HTTP errors, network errors and
+timeouts use the delivery retry. No definitions, examples, or audio are consumed.
+
+Trade-off: no durable IPA completion/status field is added. A dictionary miss may
+be queried again if translation fails on the same job (at most three deliveries).
+No backfill is added for historical words or failed best-effort publication. A saved
+nonempty IPA is preserved even if it predates this parser's validation rules.
+
+Home shares the existing five-attempt per-new-word polling budget across both
+fields, continuing when translation arrives before IPA or vice versa. Translation
+loading labels depend on translation alone. Missing IPA has no placeholder. Polls
+stop when both values arrive or the budget ends, including dictionary misses. A
+later focus refresh can still discover backend retries completed after that window.
+IPA appears below English text using existing secondary typography and wraps with
+the available card width. Audio playback and example generation are unchanged.
 
 ### Chosen technical direction
 

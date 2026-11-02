@@ -40,7 +40,7 @@ export class RecentWordsController {
 
   added = (word: WordDto) => {
     this.additions.set(word.id, word);
-    if (!word.translation) this.state.attempts = new Map(this.state.attempts).set(word.id, 0);
+    if (!word.translation || !word.ipa) this.state.attempts = new Map(this.state.attempts).set(word.id, 0);
     this.state.words = [word, ...this.state.words.filter(existing => existing.id !== word.id)]
       .sort((a, b) => b.id - a.id);
     this.state.loading = false;
@@ -84,7 +84,7 @@ export class RecentWordsController {
       }
       this.state.words = [...merged.values()].sort((a, b) => b.id - a.id);
       const attempts = new Map(this.state.attempts);
-      for (const word of words) if (word.translation) attempts.delete(word.id);
+      for (const word of words) if (word.translation && word.ipa) attempts.delete(word.id);
       this.state.attempts = attempts;
       this.state.error = null;
     } catch (error) {

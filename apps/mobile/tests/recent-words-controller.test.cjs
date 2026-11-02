@@ -26,7 +26,7 @@ function setup(load) {
     },
   };
 }
-const word = (id, translation = null) => ({ id, text: `word${id}`, translation });
+const word = (id, translation = null) => ({ id, text: `word${id}`, translation, ipa: translation ? "/wɜːd/" : null });
 
 test('only new words poll; translation success cancels the timer', async () => {
   let words = [word(1)]; let calls = 0;
@@ -140,4 +140,29 @@ test('blur clears the polling timer and late requests cannot restart it', async 
   inFlight.controller.blur(); resolve([word(2, 'late')]); await inFlight.flush();
   assert.equal(inFlight.timers.size, 0);
   assert.equal(inFlight.state.words[0].translation, null);
+});
+
+
+test('translation arriving before IPA keeps the shared timer alive', async () => {
+  let words = [{ ...word(1, 'слово'), ipa: null }];
+  const s = setup(async () => words);
+  s.controller.focus(); await s.flush();
+  s.controller.added(words[0]); await s.flush();
+  await s.tick();
+  assert.equal(s.state.attempts.get(1), 1);
+  words = [word(1, 'слово')];
+  await s.tick();
+  assert.equal(s.state.words[0].ipa, '/wɜːd/');
+  assert.equal(s.state.attempts.size, 0);
+  assert.equal(s.timers.size, 0);
+});
+
+test('IPA arriving first preserves translation polling; absent IPA stays bounded', async () => {
+  const s = setup(async () => [{ ...word(1), ipa: '/wɜːd/' }]);
+  s.controller.focus(); await s.flush();
+  s.controller.added({ ...word(1), ipa: '/wɜːd/' }); await s.flush();
+  for (let i = 0; i < 5; i++) await s.tick();
+  assert.equal(s.state.attempts.get(1), 5);
+  assert.equal(s.state.words[0].ipa, '/wɜːd/');
+  assert.equal(s.timers.size, 0);
 });
