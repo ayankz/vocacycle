@@ -55,7 +55,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
   },
   copy: { flex: 1, minWidth: 0, paddingRight: spacing[2] },
-  wordLine: { flexDirection: 'row', alignItems: 'baseline', flexWrap: 'wrap', columnGap: spacing[2] },
+  wordLine: { alignItems: 'flex-start', rowGap: 2 },
   word: { flexShrink: 1 },
   phonetic: { flexShrink: 1, fontFamily: 'JetBrainsMono_400Regular', fontSize: 12, lineHeight: 16 },
   translation: { marginTop: 2 },

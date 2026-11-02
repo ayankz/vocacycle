@@ -86,7 +86,7 @@ app.MapPost("/words", async (CreateWordRequest request, VocaCycleDbContext db, I
     }
 
     // Persistence succeeds independently of this best-effort enqueue.
-    if (string.IsNullOrWhiteSpace(word.Translation))
+    if (string.IsNullOrWhiteSpace(word.Translation) || string.IsNullOrWhiteSpace(word.Ipa))
     {
         try
         {
@@ -202,6 +202,7 @@ app.MapGet("/audio-sessions/{id:long}", async (
             sw.WordId,
             sw.Word.Text,
             sw.Word.Translation,
+            sw.Word.Ipa,
             sw.Position
         })
     });
@@ -254,6 +255,7 @@ app.MapPost("/words/{id:long}/generate-examples",
                 word.Id,
                 word.Text,
                 word.Translation,
+                word.Ipa,
                 Examples = word.Examples
                     .OrderBy(e => e.Position)
                     .Select(e => new
@@ -285,6 +287,7 @@ app.MapPost("/words/{id:long}/generate-examples",
             word.Id,
             word.Text,
             word.Translation,
+            word.Ipa,
             Examples = word.Examples
                 .OrderBy(e => e.Position)
                 .Select(e => new

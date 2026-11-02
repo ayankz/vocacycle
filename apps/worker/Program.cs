@@ -50,6 +50,11 @@ switch (translationProvider.Trim().ToLowerInvariant())
     default:
         throw new InvalidOperationException("Translation:Provider must be Ollama or Google.");
 }
+builder.Services.AddHttpClient<DictionaryIpaClient>(client =>
+{
+    client.BaseAddress = new Uri("https://api.dictionaryapi.dev/");
+    client.Timeout = TimeSpan.FromSeconds(5);
+});
 builder.Services.AddSingleton<TtsService>();
 
 var host = builder.Build();

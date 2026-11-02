@@ -124,3 +124,70 @@ audio services to verify audio and translation consumers operate independently.
 
 If enqueue fails, the saved word requires manual re-enqueue after Redis recovers;
 there is no automatic database-to-stream reconciliation in this implementation.
+
+
+## Dictionary IPA (Issue #19)
+
+Apply the additive migration before running the API and worker. It adds only the
+nullable PostgreSQL `Words.Ipa` text column with no default. Existing words and
+translations remain valid. No dictionary API key or extra service is required.
+
+```sh
+# Repository root
+dotnet ef database update --project libs/infrastructure --startup-project apps/api
+dotnet build VocaCycle.slnx
+dotnet ef migrations has-pending-model-changes --project libs/infrastructure --startup-project apps/api
+dotnet ef migrations script MakeWordTranslationOptional AddWordIpa --project libs/infrastructure --startup-project apps/api
+dotnet run --project tests/WordIpaChecks
+dotnet run --project tests/WordIpaChecks -- --live
+git diff --check
+# Separate terminals, using existing local PostgreSQL/Redis/Ollama configuration:
+dotnet run --project apps/api
+DOTNET_ENVIRONMENT=Development dotnet run --project apps/worker
+# apps/mobile
+npx tsc --noEmit
+npx expo lint
+node --test tests/recent-words-controller.test.cjs
+npx expo start
+```
+
+The dependency-free backend check executable uses mocked HTTP responses by
+default. `--live` also calls Free Dictionary API for apple, curious, resilient and
+an unknown word. Results can change: on 2026-11-02 resilient returned audio without
+any IPA text, so null is correct; curious included a truncated phonetic before a
+complete one. Do not fabricate a value to satisfy a fixed example.
+
+Optional persistence/worker checks require **fresh, disposable** PostgreSQL and
+Redis instances. Never point these variables at development or production data:
+the checks apply migrations, insert fixture words, and use the existing stream and
+group names. For example, with Docker installed (repository root):
+
+```sh
+docker run -d --rm --name vocacycle-ipa-check-db -e POSTGRES_HOST_AUTH_METHOD=trust -e POSTGRES_DB=ipa_test -p 127.0.0.1:55439:5432 postgres:17
+docker run -d --rm --name vocacycle-ipa-check-redis -p 127.0.0.1:55440:6379 redis:7-alpine
+# Wait until PostgreSQL reports ready:
+docker exec vocacycle-ipa-check-db pg_isready -U postgres
+IPA_TEST_DB='Host=127.0.0.1;Port=55439;Database=ipa_test;Username=postgres' IPA_TEST_REDIS=127.0.0.1:55440 dotnet run --project tests/WordIpaChecks -- --live
+docker stop vocacycle-ipa-check-db vocacycle-ipa-check-redis
+```
+
+Validation performed for this change: build (zero warnings), migration generation,
+SQL/snapshot validation, actual upgrade of PostgreSQL preserving a preexisting
+translation, real Redis pending/acknowledgement and three-delivery checks, both
+partial-success orders with mocked providers, saved-field skips, concurrent SQL
+field updates, deleted-word handling, and absence of generated examples. HTTP
+checks against an isolated API verified GET persistence and nullable IPA in POST,
+including a supplied translation and Add while Redis was stopped. Mocked HTTP
+checks cover 404, 429, 5xx, malformed JSON/root/fields, network errors, cancellation,
+encoding, candidate selection and truncated candidates. Live dictionary calls were
+also run. Mobile typecheck, lint and ten controller tests passed.
+
+The developer subsequently reported successful testing on a physical iPhone.
+Not verified here: Android rendering, full Ollama/Google provider integration,
+audio generation/playback, and the worker's
+60-second reclaim wall-clock timing (unchanged). Backend worker checks invoke its
+message handler against real PostgreSQL/Redis with stub translation/dictionary
+providers; they do not imply live translation-provider testing. PostgreSQL tests
+used an isolated temporary local cluster when the Docker image download was slow.
+The mobile waiting window is shorter than backend retry intervals; later focus
+refresh can reveal an IPA saved after polling finishes.
