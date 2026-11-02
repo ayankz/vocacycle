@@ -5,6 +5,7 @@ import { ChevronRightIcon } from '@/shared/icons/ChevronRightIcon';
 import { spacing } from '@/shared/theme/spacing';
 import { AppText } from '@/shared/ui/AppText';
 import { RecentWordRow, type RecentWord } from './RecentWordRow';
+import type { PronunciationState } from '../data/pronunciation-controller';
 
 type RecentWordsSectionProps = {
   words: readonly RecentWord[];
@@ -12,11 +13,12 @@ type RecentWordsSectionProps = {
   loading?: boolean;
   error?: string | null;
   onPronounce: (word: RecentWord) => void;
+  pronunciation?: PronunciationState;
 };
 
 const COLLAPSED_WORD_COUNT = 4;
 
-export function RecentWordsSection({ words, totalWordCount, loading = false, error, onPronounce }: RecentWordsSectionProps) {
+export function RecentWordsSection({ words, totalWordCount, loading = false, error, onPronounce, pronunciation }: RecentWordsSectionProps) {
   const [expanded, setExpanded] = useState(false);
   const canExpand = totalWordCount > COLLAPSED_WORD_COUNT;
   const visibleWords = expanded ? words : words.slice(0, COLLAPSED_WORD_COUNT);
@@ -38,7 +40,7 @@ export function RecentWordsSection({ words, totalWordCount, loading = false, err
           </Pressable>}
       </View>
       <View style={styles.words}>
-        {visibleWords.map((word) => <RecentWordRow key={word.id} word={word} onPronounce={onPronounce} />)}
+        {visibleWords.map((word) => <RecentWordRow key={word.id} word={word} onPronounce={onPronounce} playback={pronunciation?.wordId === word.id ? pronunciation.phase : 'idle'} />)}
         {loading && <AppText variant="caption" color="#8C909E">Loading saved words…</AppText>}
         {!loading && error && <AppText variant="caption" color="#F87171">{error}</AppText>}
         {!loading && !error && words.length === 0 && <AppText variant="caption" color="#8C909E">No saved words yet.</AppText>}

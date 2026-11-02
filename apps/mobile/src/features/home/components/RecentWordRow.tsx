@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 
 import { PlayIcon } from '@/shared/icons/PlayIcon';
 import { colors } from '@/shared/theme/colors';
@@ -18,9 +18,10 @@ export type RecentWord = {
 type RecentWordRowProps = {
   word: RecentWord;
   onPronounce: (word: RecentWord) => void;
+  playback?: 'idle' | 'loading' | 'playing';
 };
 
-export function RecentWordRow({ word, onPronounce }: RecentWordRowProps) {
+export function RecentWordRow({ word, onPronounce, playback = 'idle' }: RecentWordRowProps) {
   const hasPronunciation = !!word.pronunciationAudioUrl?.trim();
   return (
     <View style={styles.row}>
@@ -33,13 +34,16 @@ export function RecentWordRow({ word, onPronounce }: RecentWordRowProps) {
       </View>
       {hasPronunciation && <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`Play pronunciation of ${word.word}`}
-        accessibilityHint="Pronunciation playback is not available yet"
+        accessibilityLabel={`${playback === 'loading' ? 'Loading' : playback === 'playing' ? 'Replay' : 'Play'} pronunciation of ${word.word}`}
+        accessibilityHint="Plays the English pronunciation"
+        accessibilityState={{ busy: playback === 'loading', selected: playback === 'playing' }}
         hitSlop={6}
         onPress={() => onPronounce(word)}
-        style={({ pressed }) => [styles.playButton, pressed && styles.pressed]}
+        style={({ pressed }) => [styles.playButton, playback === 'playing' && styles.playing, pressed && styles.pressed]}
       >
-        <View style={styles.playGlyph}><PlayIcon size={14} color={colors.textPrimary} /></View>
+        {playback === 'loading'
+          ? <ActivityIndicator size="small" color={colors.textPrimary} />
+          : <View style={styles.playGlyph}><PlayIcon size={14} color={playback === 'playing' ? colors.primary : colors.textPrimary} /></View>}
       </Pressable>}
     </View>
   );
@@ -63,6 +67,7 @@ const styles = StyleSheet.create({
   phonetic: { flexShrink: 1, fontFamily: 'JetBrainsMono_400Regular', fontSize: 12, lineHeight: 16 },
   translation: { marginTop: 2 },
   playButton: { width: 32, height: 32, borderRadius: radius.full, backgroundColor: '#292B34', justifyContent: 'center', alignItems: 'center' },
+  playing: { backgroundColor: colors.primarySubtle },
   pressed: { backgroundColor: '#343642', transform: [{ scale: 0.95 }] },
   playGlyph: { transform: [{ translateX: 2 }] },
 });
