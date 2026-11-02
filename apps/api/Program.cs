@@ -32,12 +32,31 @@ builder.Services.AddSingleton<IConnectionMultiplexer>(_ =>
 });
 
 var app = builder.Build();
+string? PronunciationPath(long id)
+{
+    var root = builder.Configuration["VOCACYCLE_STORAGE"];
+    return string.IsNullOrWhiteSpace(root) ? null : Path.GetFullPath(Path.Combine(root, "pronunciations", $"word-{id}.mp3"));
+}
+void ValidatePronunciation(Word word)
+{
+    if (word.PronunciationAudioUrl != $"/words/{word.Id}/pronunciation"
+        || PronunciationPath(word.Id) is not { } path || !File.Exists(path) || new FileInfo(path).Length == 0)
+        word.PronunciationAudioUrl = null;
+}
 
 // Configure the HTTP request pipeline.
 
 app.UseHttpsRedirection();
 
 app.MapGet("/health", () => new { status = "ok" });
+app.MapGet("/words/{id:long}/pronunciation", async (long id, VocaCycleDbContext db) =>
+{
+    var word = await db.Words.AsNoTracking().FirstOrDefaultAsync(w => w.Id == id);
+    if (word is null) return Results.NotFound();
+    ValidatePronunciation(word);
+    if (word.PronunciationAudioUrl is null || PronunciationPath(id) is not { } path) return Results.NotFound();
+    return Results.File(path, "audio/mpeg", enableRangeProcessing: true);
+});
 
 app.MapPost("/words", async (CreateWordRequest request, VocaCycleDbContext db, IConnectionMultiplexer redis, ILogger<Program> logger) =>
 {
@@ -86,12 +105,16 @@ app.MapPost("/words", async (CreateWordRequest request, VocaCycleDbContext db, I
     }
 
     // Persistence succeeds independently of this best-effort enqueue.
-    if (string.IsNullOrWhiteSpace(word.Translation) || string.IsNullOrWhiteSpace(word.Ipa))
+    if (string.IsNullOrWhiteSpace(word.Translation) || string.IsNullOrWhiteSpace(word.Ipa) || string.IsNullOrWhiteSpace(word.PronunciationAudioUrl))
     {
         try
         {
             await redis.GetDatabase().StreamAddAsync(
-                "vocacycle:translation:jobs", "wordId", word.Id.ToString());
+                "vocacycle:translation:jobs", new NameValueEntry[]
+                {
+                    new("wordId", word.Id.ToString()),
+                    new("pronunciation", "1")
+                });
         }
         catch (RedisException)
         {
@@ -106,6 +129,7 @@ app.MapGet("/words", async (VocaCycleDbContext db) =>
 {
     var words = await db.Words.ToListAsync();
 
+    foreach (var word in words) ValidatePronunciation(word);
     return Results.Ok(words);
 });
 

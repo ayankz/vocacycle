@@ -13,8 +13,8 @@ export function useRecentWords() {
   }, [controller]));
 
   return {
-    recentWords: state.words.map(({ id, text, translation, ipa }) => ({
-      id: String(id), word: text, translation, phonetic: ipa,
+    recentWords: state.words.map(({ id, text, translation, ipa, pronunciationAudioUrl }) => ({
+      id: String(id), word: text, translation, phonetic: ipa, pronunciationAudioUrl,
       translationStatus: !translation && state.attempts.has(id)
         ? state.attempts.get(id)! < 5 ? 'Translating...' : 'Translation unavailable'
         : undefined,

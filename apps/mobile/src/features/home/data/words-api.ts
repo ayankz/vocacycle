@@ -1,4 +1,4 @@
-export type WordDto = { id: number; text: string; translation: string | null; ipa: string | null };
+export type WordDto = { id: number; text: string; translation: string | null; ipa: string | null; pronunciationAudioUrl?: string | null };
 
 const baseUrl = process.env.EXPO_PUBLIC_API_URL?.replace(/\/$/, '');
 

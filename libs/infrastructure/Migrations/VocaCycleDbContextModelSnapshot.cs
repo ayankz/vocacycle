@@ -74,8 +74,17 @@ namespace VocaCycle.Api.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
 
+                    b.Property<string>("DictionaryPronunciation")
+                        .HasColumnType("text");
+
                     b.Property<string>("Ipa")
                         .HasColumnType("text");
+
+                    b.Property<string>("PronunciationAudioUrl")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("PronunciationSynthesisAttempted")
+                        .HasColumnType("boolean");
 
                     b.Property<string>("Text")
                         .IsRequired()

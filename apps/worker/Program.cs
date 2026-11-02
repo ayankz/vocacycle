@@ -33,6 +33,15 @@ builder.Services.AddSingleton<AudioSessionProcessor>();
 builder.Services.AddHostedService<Worker>();
 // Independent hosted loop: slow translation requests cannot block audio jobs.
 builder.Services.AddHostedService<TranslationWorker>();
+builder.Services.AddHostedService<PronunciationWorker>();
+builder.Services.AddTransient<PronunciationService>();
+builder.Services.AddTransient<PronunciationAudioClient>();
+foreach (var name in new[] { "PronunciationElevenLabs", "PronunciationDictionaryAudio" })
+{
+    builder.Services.AddHttpClient(name, client => client.Timeout = TimeSpan.FromSeconds(20))
+        .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false, UseCookies = false })
+        .RedactLoggedHeaders(new[] { "xi-api-key" });
+}
 var translationProvider = builder.Configuration["Translation:Provider"]
     ?? (builder.Environment.IsDevelopment() ? "Ollama" : "Google");
 switch (translationProvider.Trim().ToLowerInvariant())
@@ -54,7 +63,7 @@ builder.Services.AddHttpClient<DictionaryIpaClient>(client =>
 {
     client.BaseAddress = new Uri("https://api.dictionaryapi.dev/");
     client.Timeout = TimeSpan.FromSeconds(5);
-});
+}).ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false, UseCookies = false });
 builder.Services.AddSingleton<TtsService>();
 
 var host = builder.Build();

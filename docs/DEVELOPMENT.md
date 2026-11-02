@@ -126,68 +126,99 @@ If enqueue fails, the saved word requires manual re-enqueue after Redis recovers
 there is no automatic database-to-stream reconciliation in this implementation.
 
 
-## Dictionary IPA (Issue #19)
+## Dictionary IPA and word pronunciation (Issues #19 and #20)
 
-Apply the additive migration before running the API and worker. It adds only the
-nullable PostgreSQL `Words.Ipa` text column with no default. Existing words and
-translations remain valid. No dictionary API key or extra service is required.
+Use .NET 10 and apply migrations before starting either host:
+
+```sh
+dotnet ef database update --project libs/infrastructure --startup-project apps/api
+```
+
+`AddWordPronunciation` adds nullable text columns `PronunciationAudioUrl` and
+`DictionaryPronunciation`, plus `PronunciationSynthesisAttempted` defaulting to
+false. Existing translation and IPA data are preserved. The internal checkpoint
+columns are needed to avoid repeating dictionary work and paid synthesis across
+restarts; they are not returned in API JSON.
+
+Set `VOCACYCLE_STORAGE` to the same absolute directory for API and worker, with
+read access for API and write access for worker. Pronunciation uses the existing
+filesystem storage convention and creates its own `pronunciations/` subdirectory.
+API returns relative `/words/{id}/pronunciation` references only when the stored
+file exists; playback clients must resolve these against `EXPO_PUBLIC_API_URL`.
+Use the LAN host instructions above for a physical iPhone. No localhost URL is
+embedded in the response. Range requests are supported by the audio endpoint.
+
+Free Dictionary API needs no key. Its IPA and audio metadata share one request.
+Only explicitly CC0, US-labelled recordings from the approved API media host with
+Wikimedia Commons provenance can be cached. Many dictionary recordings (including
+the sampled apple US recording) use CC BY-SA and are conservatively ineligible in
+this slice because the API lacks creator attribution. See ARCHITECTURE.md for the
+full accent/licensing/security policy. Unknown licenses never authorize copying.
+
+For ElevenLabs fallback, configure these **worker-only** values using environment
+variables or the worker's existing .NET User Secrets store:
+
+| Environment variable | Meaning |
+| --- | --- |
+| `ElevenLabs__ApiKey` | Secret API key; never place it in mobile/public config or logs |
+| `ElevenLabs__VoiceId` | A voice you have verified produces American English |
+| `ElevenLabs__VoiceAccent` | Explicit operator confirmation: `en-US` |
+| `ElevenLabs__ModelId` | A TTS model available to your account; no silent default |
+| `ElevenLabs__TimeoutSeconds` | Whole-request timeout, integer 1–20; template defaults to 15 |
+| `ElevenLabs__OutputFormat` | `mp3_22050_32`, `mp3_44100_64`, or `mp3_44100_128` |
+
+User Secrets keys use colons instead of double underscores. Never commit a real
+key or use `EXPO_PUBLIC_*` for provider configuration. Config validation produces
+safe diagnostics when fallback is unavailable; Add and IPA still work. The
+existing full-session TTS service is unchanged. No examples are generated on Add.
+
+Retry/cost policy: dictionary failures/downloads get at most three Redis deliveries,
+with a 60-second reclaim interval. Translation has an independent group/budget.
+ElevenLabs gets **one automatic attempt per word**, guarded by a durable conditional
+database claim. No automatic paid retry occurs for ambiguous timeouts, network
+failures, invalid audio, quota/rate-limit responses, or server errors. The
+provider's documented endpoint offers no idempotency parameter. A crash after the
+claim but before sending can therefore leave no recording. Investigate history,
+billing and local files before manually resetting a claim and re-enqueuing;
+ordinary refreshes never regenerate audio. New jobs carry `pronunciation=1`; old
+retained stream entries are skipped by the pronunciation group to avoid paid
+backfill. Missed best-effort publications still need manual re-enqueue.
+
+Validation (no live ElevenLabs requests):
 
 ```sh
 # Repository root
-dotnet ef database update --project libs/infrastructure --startup-project apps/api
 dotnet build VocaCycle.slnx
 dotnet ef migrations has-pending-model-changes --project libs/infrastructure --startup-project apps/api
-dotnet ef migrations script MakeWordTranslationOptional AddWordIpa --project libs/infrastructure --startup-project apps/api
+dotnet ef migrations script AddWordIpa AddWordPronunciation --project libs/infrastructure --startup-project apps/api
 dotnet run --project tests/WordIpaChecks
-dotnet run --project tests/WordIpaChecks -- --live
+dotnet run --project tests/WordPronunciationChecks
 git diff --check
-# Separate terminals, using existing local PostgreSQL/Redis/Ollama configuration:
-dotnet run --project apps/api
-DOTNET_ENVIRONMENT=Development dotnet run --project apps/worker
 # apps/mobile
 npx tsc --noEmit
 npx expo lint
 node --test tests/recent-words-controller.test.cjs
-npx expo start
 ```
 
-The dependency-free backend check executable uses mocked HTTP responses by
-default. `--live` also calls Free Dictionary API for apple, curious, resilient and
-an unknown word. Results can change: on 2026-11-02 resilient returned audio without
-any IPA text, so null is correct; curious included a truncated phonetic before a
-complete one. Do not fabricate a value to satisfy a fixed example.
+Optional live dictionary-only checks: `dotnet run --project tests/WordIpaChecks --
+--live`. Dictionary contents can change; resilient previously returned audio with
+no IPA, and curious included a truncated candidate before a complete one.
 
-Optional persistence/worker checks require **fresh, disposable** PostgreSQL and
-Redis instances. Never point these variables at development or production data:
-the checks apply migrations, insert fixture words, and use the existing stream and
-group names. For example, with Docker installed (repository root):
+Persistence/worker checks require fresh, disposable PostgreSQL and Redis; never
+use a development/production database. The checks apply migrations, insert fixture
+words, and create the real enrichment groups. The older `IPA_TEST_DB` integration
+mode has moved into `WordPronunciationChecks` to cover the independent consumers.
+For example, with disposable services on ports 55442 and 55441:
 
 ```sh
-docker run -d --rm --name vocacycle-ipa-check-db -e POSTGRES_HOST_AUTH_METHOD=trust -e POSTGRES_DB=ipa_test -p 127.0.0.1:55439:5432 postgres:17
-docker run -d --rm --name vocacycle-ipa-check-redis -p 127.0.0.1:55440:6379 redis:7-alpine
-# Wait until PostgreSQL reports ready:
-docker exec vocacycle-ipa-check-db pg_isready -U postgres
-IPA_TEST_DB='Host=127.0.0.1;Port=55439;Database=ipa_test;Username=postgres' IPA_TEST_REDIS=127.0.0.1:55440 dotnet run --project tests/WordIpaChecks -- --live
-docker stop vocacycle-ipa-check-db vocacycle-ipa-check-redis
+PRONUNCIATION_TEST_DB='Host=127.0.0.1;Port=55442;Database=pronunciation_test;Username=postgres' PRONUNCIATION_TEST_REDIS=127.0.0.1:55441 dotnet run --project tests/WordPronunciationChecks
 ```
 
-Validation performed for this change: build (zero warnings), migration generation,
-SQL/snapshot validation, actual upgrade of PostgreSQL preserving a preexisting
-translation, real Redis pending/acknowledgement and three-delivery checks, both
-partial-success orders with mocked providers, saved-field skips, concurrent SQL
-field updates, deleted-word handling, and absence of generated examples. HTTP
-checks against an isolated API verified GET persistence and nullable IPA in POST,
-including a supplied translation and Add while Redis was stopped. Mocked HTTP
-checks cover 404, 429, 5xx, malformed JSON/root/fields, network errors, cancellation,
-encoding, candidate selection and truncated candidates. Live dictionary calls were
-also run. Mobile typecheck, lint and ten controller tests passed.
-
-The developer subsequently reported successful testing on a physical iPhone.
-Not verified here: Android rendering, full Ollama/Google provider integration,
-audio generation/playback, and the worker's
-60-second reclaim wall-clock timing (unchanged). Backend worker checks invoke its
-message handler against real PostgreSQL/Redis with stub translation/dictionary
-providers; they do not imply live translation-provider testing. PostgreSQL tests
-used an isolated temporary local cluster when the Docker image download was slow.
-The mobile waiting window is shorter than backend retry intervals; later focus
-refresh can reveal an IPA saved after polling finishes.
+Manual review: start API/worker with shared storage, add an English word, confirm
+201 returns immediately with null audio, and refresh GET /words after enrichment.
+Open the returned relative audio path using the computer's LAN API origin. Confirm
+missing files return 404 and null references, unavailable dictionary/configuration
+leaves Add usable, and repeated GETs make no synthesis calls. Verify the Recent
+Words icon is hidden before availability and appears after a successful refresh,
+with no reserved empty control space. Playback remains intentionally unimplemented.
+Issue #8 must add the focused rendered-UI conditional-icon test alongside playback.
