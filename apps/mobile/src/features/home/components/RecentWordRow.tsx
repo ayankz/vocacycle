@@ -12,6 +12,7 @@ export type RecentWord = {
   phonetic: string | null;
   translation: string | null;
   translationStatus?: string;
+  pronunciationAudioUrl?: string | null;
 };
 
 type RecentWordRowProps = {
@@ -20,16 +21,17 @@ type RecentWordRowProps = {
 };
 
 export function RecentWordRow({ word, onPronounce }: RecentWordRowProps) {
+  const hasPronunciation = !!word.pronunciationAudioUrl?.trim();
   return (
     <View style={styles.row}>
-      <View style={styles.copy}>
+      <View style={[styles.copy, hasPronunciation && styles.copyWithControl]}>
         <View style={styles.wordLine}>
           <AppText variant="compactTitle" style={styles.word}>{word.word}</AppText>
           {word.phonetic && <AppText color={colors.textSubtle} style={styles.phonetic}>{word.phonetic}</AppText>}
         </View>
         {(word.translation || word.translationStatus) && <AppText variant="caption" numberOfLines={1} color={colors.textCaption} style={styles.translation}>{word.translation || word.translationStatus}</AppText>}
       </View>
-      <Pressable
+      {hasPronunciation && <Pressable
         accessibilityRole="button"
         accessibilityLabel={`Play pronunciation of ${word.word}`}
         accessibilityHint="Pronunciation playback is not available yet"
@@ -38,7 +40,7 @@ export function RecentWordRow({ word, onPronounce }: RecentWordRowProps) {
         style={({ pressed }) => [styles.playButton, pressed && styles.pressed]}
       >
         <View style={styles.playGlyph}><PlayIcon size={14} color={colors.textPrimary} /></View>
-      </Pressable>
+      </Pressable>}
     </View>
   );
 }
@@ -54,7 +56,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: radius.lg,
   },
-  copy: { flex: 1, minWidth: 0, paddingRight: spacing[2] },
+  copy: { flex: 1, minWidth: 0 },
+  copyWithControl: { paddingRight: spacing[2] },
   wordLine: { alignItems: 'flex-start', rowGap: 2 },
   word: { flexShrink: 1 },
   phonetic: { flexShrink: 1, fontFamily: 'JetBrainsMono_400Regular', fontSize: 12, lineHeight: 16 },

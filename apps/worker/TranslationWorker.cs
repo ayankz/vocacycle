@@ -9,7 +9,6 @@ public sealed class TranslationWorker(
     IConnectionMultiplexer connection,
     IDbContextFactory<VocaCycleDbContext> dbFactory,
     IWordTranslator translator,
-    DictionaryIpaClient dictionary,
     ILogger<TranslationWorker> logger) : BackgroundService
 {
     private const string Stream = "vocacycle:translation:jobs";
@@ -79,14 +78,11 @@ public sealed class TranslationWorker(
             return;
         }
 
-        // Each operation has its own deadline and failure boundary. A successful
-        // translation must not acknowledge a transient dictionary failure (or vice versa).
-        var translationComplete = await AttemptAsync(false);
-        var ipaComplete = await AttemptAsync(true);
-        if ((!translationComplete || !ipaComplete) && deliveries < MaxDeliveries) return;
+        var translationComplete = await AttemptAsync();
+        if (!translationComplete && deliveries < MaxDeliveries) return;
         await redis.StreamAcknowledgeAsync(Stream, Group, message.Id);
 
-        async Task<bool> AttemptAsync(bool ipa)
+        async Task<bool> AttemptAsync()
         {
             try
             {
@@ -95,29 +91,18 @@ public sealed class TranslationWorker(
                 await using var db = await dbFactory.CreateDbContextAsync(timeout.Token);
                 var word = await db.Words.AsNoTracking().FirstOrDefaultAsync(w => w.Id == wordId, timeout.Token);
                 if (word is null) return true;
-                if (ipa)
-                {
-                    if (!string.IsNullOrWhiteSpace(word.Ipa)) return true;
-                    var transcription = await dictionary.LookupAsync(word.Text, timeout.Token);
-                    if (transcription is null) return true; // Definitive absence, not a retryable failure.
-                    await db.Words.Where(w => w.Id == wordId && (w.Ipa == null || w.Ipa.Trim() == ""))
-                        .ExecuteUpdateAsync(update => update.SetProperty(w => w.Ipa, transcription), timeout.Token);
-                }
-                else
-                {
-                    if (!string.IsNullOrWhiteSpace(word.Translation)) return true;
-                    var translation = await translator.TranslateAsync(word.Text, timeout.Token);
-                    await db.Words.Where(w => w.Id == wordId && (w.Translation == null || w.Translation.Trim() == ""))
-                        .ExecuteUpdateAsync(update => update.SetProperty(w => w.Translation, translation), timeout.Token);
-                }
-                logger.LogInformation("Saved {Enrichment} for Word {WordId}.", ipa ? "IPA" : "translation", wordId);
+                if (!string.IsNullOrWhiteSpace(word.Translation)) return true;
+                var translation = await translator.TranslateAsync(word.Text, timeout.Token);
+                await db.Words.Where(w => w.Id == wordId && (w.Translation == null || w.Translation.Trim() == ""))
+                    .ExecuteUpdateAsync(update => update.SetProperty(w => w.Translation, translation), timeout.Token);
+                logger.LogInformation("Saved translation for Word {WordId}.", wordId);
                 return true;
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { throw; }
             catch (Exception ex)
             {
                 logger.LogWarning("{Enrichment} attempt {Attempt}/{MaxAttempts} failed for Word {WordId} ({ErrorType}).",
-                    ipa ? "IPA" : "Translation", deliveries, MaxDeliveries, wordId, ex.GetType().Name);
+                    "Translation", deliveries, MaxDeliveries, wordId, ex.GetType().Name);
                 return false;
             }
         }

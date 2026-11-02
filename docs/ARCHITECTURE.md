@@ -52,42 +52,100 @@ automatic backfill, or schema change is introduced in this slice. The mobile
 unavailable label means its waiting budget ended, not a durable backend status;
 translation may appear on a later focus refresh.
 
-### Dictionary IPA enrichment (Issue #19)
+### Dictionary IPA and pronunciation enrichment (Issues #19 and #20)
 
-The existing `TranslationWorker` now enriches both translation and IPA on the same
-stream, group, and delivery. Add enqueues even when a translation was supplied,
-because IPA is still missing. There is no new queue, hosted service, or provider
-for generated IPA. The typed `DictionaryIpaClient` calls Free Dictionary API with
-an encoded English word and a five-second HTTP timeout, without credentials.
+`POST /words` still saves before its bounded best-effort Redis publish. New events
+include `pronunciation=1` alongside `wordId` on `vocacycle:translation:jobs`.
+The existing worker process runs a `PronunciationWorker` in a separate
+`pronunciation-workers` group on that same stream. `TranslationWorker` now owns
+translation alone. Separate groups prevent slow audio work, dictionary failures,
+or translation failures from consuming another operation's retries. No additional
+Redis deployment, worker project, or job framework is introduced.
 
-Each delivery attempts translation and IPA sequentially with independent failure
-boundaries, database contexts, and 15-second processing deadlines. A translation
-timeout cannot consume IPA's deadline. Either transient failure leaves the message
-pending until the existing 60-second reclaim and three-delivery limit. Persisted
-nonempty fields skip their providers. Each conditional SQL update touches only its
-own empty field, preserving concurrent writes and safely ignoring deleted words.
-Shutdown cancellation leaves the delivery pending.
+Both groups start at `0-0`, reclaim after 60 seconds, and acknowledge after at most
+three deliveries. Pronunciation ignores historical messages without the marker,
+preventing an automatic paid backfill on deployment. Its per-delivery deadline is
+40 seconds, below the reclaim interval. Dictionary attempts have a five-second
+whole-response deadline and 1 MiB cap; approved downloads have ten seconds and a
+2 MiB cap. Provider failures never fail Add. Publication remains non-atomic with
+PostgreSQL; the existing missed-publication limitation still applies.
 
-IPA selection prefers valid `phonetics[].text`, then entry-level `phonetic`.
-Delimited candidates take priority within each source; response order breaks ties.
-The parser preserves notation, rejects markup, URLs, mismatched delimiters,
-truncated hyphen forms and unsupported characters. This is conservative structural
-validation, not a phonology engine. 404 and successful responses without suitable
-IPA complete the lookup with null; malformed JSON, HTTP errors, network errors and
-timeouts use the delivery retry. No definitions, examples, or audio are consumed.
+`DictionaryIpaClient.LookupPronunciationAsync` reads IPA and recording metadata
+from one response. Existing IPA selection/validation is preserved. The chosen
+recording is the ordinally first eligible URL. Only HTTPS, default-port URLs in
+`api.dictionaryapi.dev/media/pronunciations/en/` ending in `-us.mp3` are eligible;
+this specific provider namespace's US suffix is the accent evidence. Generic
+English recordings, UK suffixes, and arbitrary hosts/filenames are not evidence of
+American English. Downloads disable redirects/cookies and revalidate the URL.
+Clients cannot supply a download URL. MIME type, MP3 signature, and bounded bytes
+are checked before an atomic filesystem write.
 
-Trade-off: no durable IPA completion/status field is added. A dictionary miss may
-be queried again if translation fails on the same job (at most three deliveries).
-No backfill is added for historical words or failed best-effort publication. A saved
-nonempty IPA is preserved even if it predates this parser's validation rules.
+Licensing is recording-specific. The API's free availability and GPL source-code
+license do not license all linked recordings. Its audio metadata includes
+`sourceUrl` and sometimes a per-recording license; it does not supply creator
+attribution. This slice accepts only explicit CC0 1.0 with an HTTPS Wikimedia
+Commons source link. CC BY/BY-SA recordings are conservatively ineligible because
+complete attribution is unavailable in the response. They are neither copied nor
+exposed as permanent remote URLs. Supporting them later requires source-level
+rights verification and attribution presentation. CC0 source/license metadata is
+retained in the internal dictionary checkpoint. This is a deliberately narrow
+policy, not a claim that other recordings forbid reuse.
 
-Home shares the existing five-attempt per-new-word polling budget across both
-fields, continuing when translation arrives before IPA or vice versa. Translation
-loading labels depend on translation alone. Missing IPA has no placeholder. Polls
-stop when both values arrive or the budget ends, including dictionary misses. A
-later focus refresh can still discover backend retries completed after that window.
-IPA appears below English text using existing secondary typography and wraps with
-the available card width. Audio playback and example generation are unchanged.
+A 404 or successful parsed response without an eligible recording confirms
+absence under that policy and permits ElevenLabs fallback. 429, 5xx, malformed
+responses, timeouts and network errors do not. A failed eligible-recording download
+never switches to paid synthesis. IPA is saved before audio processing, including
+when audio storage or TTS configuration is missing. A durable internal
+`DictionaryPronunciation` JSON checkpoint caches confirmed absence or the chosen
+recording, so audio retries never repeat completed IPA/dictionary work. Conditional
+updates preserve concurrently written IPA and translation.
+
+ElevenLabs receives only a single saved English word (letters with optional
+internal apostrophes/hyphens, at most 80 characters), never examples, definitions,
+or translations. Voice/model/output/timeout/key are worker configuration. The
+operator must verify the selected voice's American accent and explicitly set
+`VoiceAccent=en-US`; language code `en` alone makes no accent guarantee. Missing or
+invalid configuration logs a safe diagnostic and leaves audio null. No voice or
+model is silently selected. Authentication/quota failures and transient rate/server
+failures have safe distinct categories; raw provider bodies/keys are never logged.
+
+The documented synthesis endpoint provides no idempotency parameter. A conditional
+PostgreSQL update sets `PronunciationSynthesisAttempted` **before** the HTTP request;
+only the winning delivery may send it. At most one automatic paid attempt is made
+per word, even with concurrent deliveries, timeouts, cancellation, crashes, empty
+responses, or 5xx. This trades automatic recovery for cost control: a crash between
+the claim and send may leave audio absent without spending anything. Even explicit
+rate-limit rejection is not automatically retried in this conservative slice.
+Dictionary requests/downloads retain the bounded stream retries (60-second backoff).
+Administrators must inspect provider history/billing and local artifacts before
+manually authorizing another synthesis attempt. Do not routinely clear claims.
+
+Audio uses the existing shared `VOCACYCLE_STORAGE` filesystem, in
+`pronunciations/word-{id}.mp3`; no audio bytes go into PostgreSQL. Atomic temporary
+writes prevent partial files being served. A finished file can recover a crash
+before its DB reference update without calling a provider again. The nullable
+`Word.PronunciationAudioUrl` is `/words/{id}/pronunciation`, served by a range-enabled
+backend endpoint. GET /words omits references to missing files. Internal dictionary
+and synthesis checkpoints are JSON-ignored. API and worker must share storage.
+The relative URL resolves against the mobile API's LAN origin, with no hardcoded
+localhost host. GET does not enqueue work; existing recordings are reused. Missing
+paid-generated files are not automatically regenerated after a claim.
+
+Recent Words maps `pronunciationAudioUrl` and renders its existing play control
+only for a nonempty reference, removing control spacing when hidden. Refresh can
+reveal completed audio; the existing translation/IPA polling budget is unchanged.
+Playback and its loading/playing/error states remain Issue #8. That issue must add
+a focused rendered-UI test for null/undefined/empty URLs versus an available URL.
+
+References checked for this implementation:
+
+- [Free Dictionary API documentation](https://dictionaryapi.dev/)
+- [Actual apple metadata](https://api.dictionaryapi.dev/api/v2/entries/en/apple)
+- [API source repository](https://github.com/meetDeveloper/freeDictionaryAPI)
+- [CC0 rights and limitations](https://creativecommons.org/publicdomain/zero/1.0/)
+- [CC BY-SA attribution requirements](https://creativecommons.org/licenses/by-sa/3.0/)
+- [ElevenLabs synthesis contract](https://elevenlabs.io/docs/api-reference/text-to-speech/convert)
+- [ElevenLabs rate-limit diagnostics](https://elevenlabs.io/docs/help-center/technical/api-error-code-429)
 
 ### Chosen technical direction
 
