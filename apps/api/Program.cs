@@ -143,10 +143,20 @@ app.MapPost("/words", async (CreateWordRequest request, VocaCycleDbContext db, I
 
 app.MapGet("/words", async (VocaCycleDbContext db) =>
 {
-    var words = await db.Words.ToListAsync();
+    var rows = await db.Words.AsNoTracking()
+        .Select(word => new
+        {
+            Word = word,
+            HasAudioSession = db.AudioSessionWords.Any(sessionWord => sessionWord.WordId == word.Id)
+        }).ToListAsync();
 
-    foreach (var word in words) ValidatePronunciation(word);
-    return Results.Ok(words);
+    foreach (var row in rows) ValidatePronunciation(row.Word);
+    return Results.Ok(rows.Select(row => new
+    {
+        row.Word.Id, row.Word.Text, row.Word.Translation, row.Word.Ipa,
+        row.Word.PronunciationAudioUrl, row.Word.Examples, row.Word.CreatedAt,
+        row.HasAudioSession
+    }));
 });
 
 app.MapPost("/audio-sessions", async (CreateAudioSessionRequest request,

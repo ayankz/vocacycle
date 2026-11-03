@@ -4,6 +4,9 @@ import { router, useFocusEffect, useLocalSearchParams, useNavigation } from 'exp
 import { SafeAreaView } from 'react-native-screens/experimental';
 
 import { AppText } from '@/shared/ui/AppText';
+import { PlusIcon } from '@/shared/icons/PlusIcon';
+import { VocabularyControls } from './VocabularyControls';
+import { filterVocabulary, type VocabularyFilter } from '../data/filters';
 import { CheckIcon } from '@/shared/icons/CheckIcon';
 import { ArrowRightIcon } from '@/shared/icons/ArrowRightIcon';
 import { colors } from '@/shared/theme/colors';
@@ -17,6 +20,11 @@ export function VocabularyScreen({ onContinue }: { onContinue: (wordIds: number[
   const selecting = mode === 'select';
   const navigation = useNavigation();
   const { words, loading, refreshing, error, refresh } = useVocabularyWords();
+  const [query, setQuery] = useState('');
+  const [filter, setFilter] = useState<VocabularyFilter>('all');
+  const visibleWords = filterVocabulary(words, query, filter);
+  const membershipAvailable = words.every(word => typeof word.hasAudioSession === 'boolean');
+  const notInAudioCount = membershipAvailable ? words.filter(word => !word.hasAudioSession).length : null;
   const [selection, setSelection] = useState(() => ({ words, selecting, ids: new Set<number>() }));
   // Reconcile while rendering so a removed ID cannot be submitted or resurrected.
   const selected = selection.words === words && selection.selecting === selecting
@@ -28,14 +36,14 @@ export function VocabularyScreen({ onContinue }: { onContinue: (wordIds: number[
     setSelection(previous => ({ ...previous, ids: typeof value === 'function' ? value(previous.ids) : value }));
   };
   const ids = validSelection(selected, words);
-  const allSelected = words.length > 0 && ids.length === words.length;
+  const allSelected = visibleWords.length > 0 && visibleWords.every(word => selected.has(word.id));
   const canContinue = !loading && !refreshing && !error && ids.length > 0;
 
   // Target this route, even when another tab is already focused during cleanup.
   useFocusEffect(useCallback(() => () => {
     setSelection(previous => ({ ...previous, ids: new Set() }));
     navigation.setParams({ mode: undefined } as never);
-  }, [navigation]));
+  }, [navigation, setSelection]));
 
   const cancel = () => {
     setSelected(new Set());
@@ -53,18 +61,28 @@ export function VocabularyScreen({ onContinue }: { onContinue: (wordIds: number[
         <Pressable accessibilityRole="button" onPress={cancel} style={styles.headerButton}><AppText color={colors.textSecondary}>Cancel</AppText></Pressable>
         <View style={styles.count} accessibilityLiveRegion="polite">
           <AppText variant="compactTitle" color={colors.primary}>{ids.length} selected</AppText>
-          <AppText variant="caption" color={colors.textSubtle}>{loading ? 'Loading…' : error ? 'Refresh needed' : `of ${words.length} words`}</AppText>
+          <AppText variant="caption" color={colors.textSubtle}>{loading ? 'Loading…' : error ? 'Refresh needed' : `${visibleWords.length} shown · ${words.length} total`}</AppText>
         </View>
-        <Pressable accessibilityRole="button" disabled={loading || !!error || !words.length} accessibilityState={{ disabled: loading || !!error || !words.length }}
-          onPress={() => setSelected(previous => selectAll(previous, words))} style={styles.headerButton}>
+        <Pressable accessibilityRole="button" disabled={loading || !!error || !visibleWords.length} accessibilityState={{ disabled: loading || !!error || !visibleWords.length }}
+          onPress={() => setSelected(previous => selectAll(previous, visibleWords))} style={styles.headerButton}>
           <AppText variant="bodySmall" color={colors.primary}>{allSelected ? 'Deselect All' : 'Select All'}</AppText>
         </Pressable>
       </View> : <View style={styles.header}>
-        <AppText variant="pageTitle">Vocabulary</AppText>
+        <View style={styles.titleGroup}>
+          <AppText variant="pageTitle">Vocabulary</AppText>
+          <AppText variant="caption" color={colors.textSubtle}>{loading ? '…' : error && !words.length ? '—' : words.length} words</AppText>
+        </View>
+        <View style={styles.headerActions}>
         <Pressable accessibilityRole="button" disabled={loading || !!error || !words.length} onPress={() => { setSelected(new Set()); router.setParams({ mode: 'select' }); }} style={styles.headerButton}>
           <AppText color={colors.primary}>Select</AppText>
         </Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel="Add word on Home" onPress={() => router.navigate('/')} style={styles.addButton}>
+          <PlusIcon color={colors.textOnPrimary} />
+        </Pressable>
+        </View>
       </View>}
+      <VocabularyControls query={query} onQueryChange={setQuery} filter={filter} onFilterChange={setFilter}
+        count={error && !words.length ? null : words.length} notInAudioCount={error && !words.length ? null : notInAudioCount} loading={loading} />
       {!!error && <View style={styles.message} accessibilityRole="alert">
         <AppText variant="bodySmall" color={colors.textSecondary}>Could not refresh vocabulary. Please try again.</AppText>
         <Pressable accessibilityRole="button" onPress={refresh} style={styles.headerButton}><AppText color={colors.primary}>Try again</AppText></Pressable>
@@ -73,12 +91,14 @@ export function VocabularyScreen({ onContinue }: { onContinue: (wordIds: number[
         style={styles.scroll}
         contentInsetAdjustmentBehavior="never"
         automaticallyAdjustContentInsets={false}
-        data={words}
+        data={visibleWords}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
         keyExtractor={word => String(word.id)}
         extraData={selected}
         contentContainerStyle={styles.list}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.primary} colors={[colors.primary]} progressBackgroundColor={colors.surface} />}
-        ListEmptyComponent={<View style={styles.message}><AppText color={colors.textSecondary}>{loading ? 'Loading vocabulary…' : error ? 'Vocabulary could not be loaded.' : 'No saved words yet. Add a word on Home to get started.'}</AppText></View>}
+        ListEmptyComponent={<View style={styles.message}><AppText color={colors.textSecondary}>{loading ? 'Loading vocabulary…' : error ? 'Vocabulary could not be loaded.' : words.length === 0 ? 'No saved words yet. Add a word on Home to get started.' : filter === 'not-in-audio' && !membershipAvailable ? 'Audio session membership is unavailable. Try refreshing.' : filter === 'not-in-audio' && !query.trim() ? 'All saved words have been used in audio sessions.' : 'No matching words. Try another search or filter.'}</AppText></View>}
         renderItem={({ item }) => {
           const checked = selected.has(item.id);
           const copy = <View style={styles.copy}>
@@ -106,6 +126,9 @@ export function VocabularyScreen({ onContinue }: { onContinue: (wordIds: number[
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.appBackground },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing[5], paddingVertical: spacing[3], gap: spacing[2] },
+  titleGroup: { flex: 1, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: spacing[2] },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
+  addButton: { width: 44, height: 44, borderRadius: radius.full, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
   headerButton: { minHeight: 44, justifyContent: 'center', paddingHorizontal: spacing[1] },
   count: { alignItems: 'center', flex: 1 },
   scroll: { flex: 1 },

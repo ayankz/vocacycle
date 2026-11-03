@@ -177,6 +177,28 @@ These links identify related scope; session listing/counts, playable metadata an
 listening persistence still require separately scoped contract work. This Home
 integration does not introduce endpoints, analytics or a player.
 
+### Vocabulary discovery (Issue #35)
+
+`GET /words` adds `createdAt` and `hasAudioSession` to existing active-word fields.
+Membership is an `EXISTS` query against `AudioSessionWords` in the same database
+query: any session membership counts, including pending, failed and cancelled
+jobs. "Not in Audio" means never included, not "no playable recording"; word
+pronunciation URLs do not establish membership. Re-adding a deleted spelling gets
+a new ID and does not inherit the archived word's membership.
+
+Apply `AddWordCreatedAt` before starting the updated API/worker. New words record
+UTC creation time; existing rows retain null because their original dates are
+unknown. Recent sorts dated words newest first, then legacy words by descending
+ID, with ID also breaking date ties. It includes all active words without an
+invented time window. All preserves existing list order. Search matches word or
+translation case-insensitively within each filter; chip counts reflect all active
+words before search. Select All/Deselect All affects visible results and preserves
+selections outside the search/filter; Continue validates against all active words.
+
+Validation: `dotnet build VocaCycle.slnx`, migration/model check, existing
+`WordDeletionChecks` against its disposable database, and mobile tests. No worker
+or paid provider is invoked by discovery queries or these checks.
+
 ### Chosen technical direction
 
 | Area | Decision |
