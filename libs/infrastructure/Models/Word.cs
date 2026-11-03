@@ -4,6 +4,7 @@ public class Word
 {
     public long Id { get; set; }
     public required string Text { get; set; }
+    public DateTimeOffset? CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     public string? Translation { get; set; }
     public string? Ipa { get; set; }
     public string? PronunciationAudioUrl { get; set; }

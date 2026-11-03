@@ -3,6 +3,8 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using Npgsql;
@@ -26,7 +28,11 @@ try
     var options = new DbContextOptionsBuilder<VocaCycleDbContext>().UseNpgsql(builder.ConnectionString).Options;
     var factory = new Factory(options);
     await using var db = factory.CreateDbContext();
+    await db.GetService<IMigrator>().MigrateAsync("20261102122158_AddWordDeletion");
+    await db.Database.ExecuteSqlRawAsync("""INSERT INTO "Words" ("Text") VALUES ('legacyfixture')""");
     await db.Database.MigrateAsync();
+    Check((await db.Words.SingleAsync(w => w.Text == "legacyfixture")).CreatedAt == null,
+        "creation-date migration preserves unknown historical dates");
     Check(!db.Database.HasPendingModelChanges(), "migration matches model");
     async Task<Word> Add(string text, bool audio = true) {
         var w = new Word { Text = text, Translation = "saved", Ipa = "/saved/" };
@@ -114,8 +120,29 @@ try
     Check((await http.DeleteAsync($"/words/{httpWord.Id}")).StatusCode == HttpStatusCode.NoContent, "repeated DELETE remains 204");
     Check((await http.DeleteAsync("/words/0")).StatusCode == HttpStatusCode.BadRequest, "invalid ID rejected");
     Check((await http.DeleteAsync($"/words/{blocked.Id}")).StatusCode == HttpStatusCode.ServiceUnavailable, "cleanup failure returns 503");
+    // Discovery metadata uses real session memberships, irrespective of job outcome.
+    var discoveryWords = new List<Word>();
+    foreach (var status in new[] { "pending", "processing", "ready", "failed", "cancelled" })
+    {
+        var used = await Add("used" + status, false);
+        db.Add(new AudioSession { Status = status, Words = [new AudioSessionWord { WordId = used.Id, Position = 0 }] });
+        discoveryWords.Add(used);
+    }
+    var unused = await Add("neverused", false);
+    unused.CreatedAt = null; // Legacy vocabulary has no fabricated creation date.
+    await db.SaveChangesAsync();
     var list = JsonDocument.Parse(await http.GetStringAsync("/words"));
     Check(!list.RootElement.EnumerateArray().Any(w => w.GetProperty("id").GetInt64() == httpWord.Id), "GET words excludes deleted word");
+    JsonElement Listed(long id) => list.RootElement.EnumerateArray().Single(w => w.GetProperty("id").GetInt64() == id);
+    Check(discoveryWords.All(w => Listed(w.Id).GetProperty("hasAudioSession").GetBoolean()),
+        "membership includes pending, processing, ready, failed and cancelled sessions");
+    Check(!Listed(unused.Id).GetProperty("hasAudioSession").GetBoolean(), "never-used word has no session membership");
+    Check(Listed(unused.Id).GetProperty("createdAt").ValueKind == JsonValueKind.Null, "unknown historical date stays null");
+    Check(Listed(discoveryWords[0].Id).GetProperty("createdAt").GetDateTimeOffset().ToUnixTimeMilliseconds() == discoveryWords[0].CreatedAt!.Value.ToUnixTimeMilliseconds(),
+        "word creation timestamp persists and round-trips through GET");
+    Check(!Listed((await db.Words.SingleAsync(w => w.Text == "archive")).Id).GetProperty("hasAudioSession").GetBoolean(),
+        "re-added spelling does not inherit archived word membership");
+
     Check((await http.GetAsync($"/words/{httpWord.Id}/pronunciation")).StatusCode == HttpStatusCode.NotFound, "deleted pronunciation endpoint is inaccessible");
     var sessionJson = JsonDocument.Parse(await http.GetStringAsync($"/audio-sessions/{session.Id}"));
     Check(sessionJson.RootElement.GetProperty("words")[0].GetProperty("text").GetString() == "archive", "HTTP session retains archived word metadata");

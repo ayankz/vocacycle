@@ -3,8 +3,8 @@ const assert = require('node:assert/strict');
 const createLoader = require('./helpers/load-ts.cjs');
 
 const words = [
-  { id: 27, text: 'bike', translation: 'велосипед', ipa: null, pronunciationAudioUrl: null },
-  { id: 29, text: 'glasses', translation: null, ipa: '/ɡlæsɪz/' },
+  { id: 27, hasAudioSession: false, createdAt: '2026-11-01T12:00:00Z', text: 'bike', translation: 'велосипед', ipa: null, pronunciationAudioUrl: null },
+  { id: 29, hasAudioSession: true, createdAt: '2026-11-02T12:00:00Z', text: 'glasses', translation: null, ipa: '/ɡlæsɪz/' },
 ];
 
 test('selection toggles, bulk selection toggles and handoff excludes duplicates/deleted/invalid IDs', () => {
@@ -41,9 +41,11 @@ function setup(mode = 'select') {
     },
     'react-native': native,
     'react-native-screens/experimental': { SafeAreaView: 'native-safe' },
-    'expo-router': { useLocalSearchParams: () => params, useNavigation: () => ({ setParams: p => { calls.push(p); Object.assign(params, p); } }), useFocusEffect: fn => { focus = fn; }, router: { setParams: p => { calls.push(p); Object.assign(params, p); } } },
+    'expo-router': { useLocalSearchParams: () => params, useNavigation: () => ({ setParams: p => { calls.push(p); Object.assign(params, p); } }), useFocusEffect: fn => { focus = fn; }, router: { navigate: path => calls.push(path), setParams: p => { calls.push(p); Object.assign(params, p); } } },
     '../hooks/use-vocabulary-words': { useVocabularyWords: () => state },
     '@/shared/ui/AppText': { AppText: 'text' },
+    '@/shared/icons/PlusIcon': { PlusIcon: 'plus' },
+    './VocabularyControls': { VocabularyControls: 'controls' },
     '@/shared/icons/CheckIcon': { CheckIcon: 'check' },
     '@/shared/icons/ArrowRightIcon': { ArrowRightIcon: 'arrow' },
   });
@@ -98,7 +100,7 @@ test('leaving selection clears mode; ordinary browsing has no selection controls
   const s = setup(); s.render(); s.blur();
   assert.equal(s.params.mode, undefined);
   const tree = s.render();
-  assert.equal(buttons(tree).length, 1);
+  assert.equal(buttons(tree).length, 2);
 });
 
 
@@ -141,4 +143,35 @@ test('Vocabulary alone opts out of native automatic scroll insets', () => {
   const tabs = load('src/components/app-tabs.tsx').default().props.children.props.children;
   assert.equal(tabs.find(tab => tab.props.name === 'vocabulary').props.disableAutomaticContentInsets, true);
   assert.equal(tabs.find(tab => tab.props.name === 'index').props.disableAutomaticContentInsets, undefined);
+});
+
+const controls = tree => nodes(tree).find(n => n.type === 'controls');
+test('search and filters compose; bulk selection affects only visible results; Continue retains hidden selections', () => {
+  const s = setup(); let tree = s.render();
+  controls(tree).props.onQueryChange('BIKE'); tree = s.render();
+  assert.deepEqual(Array.from(list(tree).props.data, w => w.id), [27]);
+  buttons(tree)[1].props.onPress(); tree = s.render();
+  controls(tree).props.onQueryChange('GLASSES'); tree = s.render();
+  controls(tree).props.onFilterChange('not-in-audio'); tree = s.render();
+  assert.equal(list(tree).props.data.length, 0);
+  assert.match(JSON.stringify(list(tree).props.ListEmptyComponent), /No matching words/);
+  controls(tree).props.onFilterChange('all'); tree = s.render();
+  buttons(tree)[1].props.onPress(); tree = s.render();
+  action(tree).props.onPress(); assert.deepEqual(s.calls[0], [27, 29]);
+  buttons(tree)[1].props.onPress(); tree = s.render();
+  action(tree).props.onPress(); assert.deepEqual(s.calls[1], [27]);
+  controls(tree).props.onQueryChange(''); tree = s.render();
+  assert.equal(controls(tree).props.count, 2);
+  assert.equal(controls(tree).props.notInAudioCount, 1);
+});
+
+test('Add shortcut opens Home; counts follow real metadata; search has no session-duration estimate', () => {
+  const s = setup(undefined); s.params.mode = undefined; let tree = s.render();
+  buttons(tree).find(b => b.props.accessibilityLabel === 'Add word on Home').props.onPress();
+  assert.equal(s.calls[0], '/');
+  assert.equal(controls(tree).props.notInAudioCount, 1);
+  s.state.words = [{ ...words[0], hasAudioSession: undefined }]; tree = s.render();
+  assert.equal(controls(tree).props.notInAudioCount, null);
+  s.state.words = []; s.state.error = 'offline'; tree = s.render();
+  assert.equal(controls(tree).props.count, null);
 });
