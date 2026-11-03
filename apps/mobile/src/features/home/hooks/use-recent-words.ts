@@ -3,6 +3,7 @@ import { AppState } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 
 import { pronunciationAvailability } from '../data/pronunciation-status';
+import { setPendingRemoval } from '../data/pending-removal';
 import { deletionStore } from '../data/deletion-store';
 import { WordDeletionController, type WordDeletionState } from '../data/word-deletion-controller';
 import { deleteWord, getWords } from '../data/words-api';
@@ -12,7 +13,10 @@ export function useRecentWords() {
   const [state, setState] = useState<RecentWordsState>({ words: [], loading: true, refreshing: false, error: null, attempts: new Map(), pronunciationAttempts: new Map() });
   const [controller] = useState(() => new RecentWordsController(getWords, setState));
   const [deletion, setDeletion] = useState<WordDeletionState>({ pending: null, ready: false, busy: false, undoAvailable: false, error: null });
-  const [deletions] = useState(() => new WordDeletionController(deletionStore, deleteWord, setDeletion, controller.removed, controller.restored));
+  const [deletions] = useState(() => new WordDeletionController(deletionStore, deleteWord, value => {
+    setDeletion(value);
+    setPendingRemoval(value.pending?.word.id ?? null);
+  }, controller.removed, controller.restored));
   useFocusEffect(useCallback(() => {
     if (AppState.currentState === 'active') { controller.focus(); deletions.start(); }
     const subscription = AppState.addEventListener('change', (status) => {

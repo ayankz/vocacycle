@@ -11,10 +11,14 @@ import { AppText } from '@/shared/ui/AppText';
 type WordsReadyForAudioCardProps = {
   wordCount: number;
   onCreateAudio: () => void;
+  loading?: boolean;
+  error?: string | null;
+  onRetry?: () => void;
 };
 
-export function WordsReadyForAudioCard({ wordCount, onCreateAudio }: WordsReadyForAudioCardProps) {
+export function WordsReadyForAudioCard({ wordCount, onCreateAudio, loading = false, error, onRetry }: WordsReadyForAudioCardProps) {
   const gradientId = useId();
+  const disabled = loading || !!error || wordCount === 0;
 
   return (
     <View style={styles.card}>
@@ -31,19 +35,22 @@ export function WordsReadyForAudioCard({ wordCount, onCreateAudio }: WordsReadyF
         <View style={styles.headingRow}>
           <View style={styles.dot} />
           <AppText accessibilityRole="header" variant="compactTitle" style={styles.heading}>
-            {wordCount} {wordCount === 1 ? 'word' : 'words'} ready for audio
+            {loading ? 'Loading vocabulary…' : error ? 'Vocabulary unavailable' : `${wordCount} ${wordCount === 1 ? 'word' : 'words'} ready for audio`}
           </AppText>
         </View>
         <AppText color={colors.textCaption} style={styles.description}>
-          Turn your saved words into a listening session.
+          {loading ? 'Checking your saved words.' : error ? 'Could not refresh vocabulary. Please try again.' : wordCount === 0 ? 'Add your first word above to get started.' : 'Turn your saved words into a listening session.'}
         </AppText>
+        {!!error && !loading && <Pressable accessibilityRole="button" accessibilityLabel="Retry vocabulary" onPress={onRetry}><AppText variant="caption" color={colors.primary}>Try again</AppText></Pressable>}
       </View>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Create Audio"
+        accessibilityState={{ disabled, busy: loading }}
+        disabled={disabled}
         onPress={onCreateAudio}
         hitSlop={6}
-        style={({ pressed }) => [styles.button, pressed && styles.pressed]}
+        style={({ pressed }) => [styles.button, disabled && styles.disabled, pressed && styles.pressed]}
       >
         <AppText color="#000000" style={styles.buttonLabel}>Create Audio</AppText>
         <ArrowRightIcon />
@@ -86,4 +93,5 @@ const styles = StyleSheet.create({
   },
   buttonLabel: { fontFamily: 'SpaceGrotesk_700Bold', fontSize: 12, lineHeight: 16 },
   pressed: { backgroundColor: colors.primaryPressed, transform: [{ scale: 0.95 }] },
+  disabled: { opacity: 0.45 },
 });

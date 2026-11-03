@@ -1,18 +1,9 @@
-import { View, Text } from 'react-native';
+import { Alert } from 'react-native';
+import { VocabularyScreen } from '@/features/vocabulary/components/VocabularyScreen';
 
-export default function VocabularyScreen() {
-    return (
-        <View
-            style={{
-                flex: 1,
-                backgroundColor: '#111827',
-                justifyContent: 'center',
-                alignItems: 'center',
-            }}
-        >
-            <Text style={{ color: '#FFFFFF', fontSize: 24 }}>
-                Vocabulary
-            </Text>
-        </View>
-    );
+export default function VocabularyRoute() {
+  return <VocabularyScreen onContinue={() => {
+    // Issue #30 owns configuration/navigation; selection stays mounted here.
+    Alert.alert('Create Audio', 'Audio session configuration is not available yet. Your selection is kept here.');
+  }} />;
 }

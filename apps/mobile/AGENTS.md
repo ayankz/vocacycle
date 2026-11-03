@@ -8,6 +8,15 @@ Expo ships breaking changes every SDK release. APIs you remember are likely rena
 2. Fetch the matching versioned docs: `https://docs.expo.dev/versions/v<major>.0.0/`
 3. For anything else, fetch https://docs.expo.dev/llms.txt — an index of all Expo docs with corrections to common LLM misconceptions. Follow its links to the specific page you need; never answer from memory.
 
+## Communication & Token Efficiency
+
+- Be concise and avoid unnecessary explanations.
+- Do not repeat requirements or summarize obvious code changes.
+- Keep final responses under 150 words unless more detail is requested.
+- Report only changed files, validation results, and blockers.
+- Avoid re-exploring unrelated code or repeating completed investigations.
+- Never sacrifice correctness or skip necessary validation to save tokens.
+
 ## Commands
 
 Use `bunx` instead of `npx` if the project uses bun (`bun.lock` present).

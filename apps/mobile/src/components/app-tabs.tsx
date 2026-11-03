@@ -17,7 +17,7 @@ export default function AppTabs() {
         />
       </NativeTabs.Trigger>
 
-      <NativeTabs.Trigger name="vocabulary">
+      <NativeTabs.Trigger name="vocabulary" disableAutomaticContentInsets>
         <NativeTabs.Trigger.Label>Vocabulary</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon
           sf={{ default: 'book', selected: 'book.fill' }}

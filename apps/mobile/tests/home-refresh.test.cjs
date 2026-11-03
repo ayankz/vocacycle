@@ -8,6 +8,7 @@ function setup(refreshing) {
   const native = { Alert: {}, ScrollView: () => null, RefreshControl: () => null, StyleSheet: { create: value => value } };
   const mocks = {
     'react-native': native,
+    'expo-router': { router: { navigate() {} } },
     'react-native-safe-area-context': { SafeAreaView: () => null },
     '@/features/home/hooks/use-recent-words': { useRecentWords: () => ({
       recentWords: [], totalWordCount: 0, wordsLoading: false, wordsRefreshing: refreshing, wordsError: null, onRefresh, onAdded() {},
