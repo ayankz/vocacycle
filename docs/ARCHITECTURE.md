@@ -198,3 +198,25 @@ The player will use `expo-audio` initially. Background playback, lock-screen con
 Amazon S3, a queue, a .NET background worker, Docker, GitHub Actions, Terraform, a CDN, and observability may be introduced when actual requirements justify them. None is provisioned or required by this foundation. Generation execution, storage, authentication, deployment topology, and retry behavior require future decisions.
 
 Do not add Redis, Kubernetes, RabbitMQ, CQRS, MediatR, event buses, or microservices for sophistication. Prefer the smallest understandable solution that meets the demonstrated requirement.
+
+
+### Removing vocabulary
+
+DELETE /words/{id} is idempotent and marks a word deleted rather than breaking
+AudioSessionWord foreign keys. Word, translation, IPA and example history remain
+for existing sessions; active vocabulary queries use an EF global query filter.
+Session reads/workers explicitly include archived words. A partial unique index
+allows saving the same spelling again with a new ID. Existing session files remain.
+
+DELETE and final pronunciation publication share a short PostgreSQL row lock.
+Provider calls happen outside the lock. Deleted words are excluded from new
+translation/dictionary/TTS claims; a provider request already in flight can finish,
+but final publication rechecks the tombstone and discards its result. Retained
+Redis events are acknowledged by existing missing-word handling, without deleting
+shared stream entries or disturbing translation/session consumers.
+
+Standalone pronunciation cleanup is inside the deletion transaction. Filesystem
+failure rolls back the marker and returns an error. PostgreSQL and filesystem
+changes are not jointly transactional: a crash/commit failure after unlinking can
+leave a still-visible word without standalone audio; existing paid-attempt claims
+are never reset. This does not affect generated session files or permit paid retry.

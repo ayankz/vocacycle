@@ -1,7 +1,9 @@
-import { Alert, ScrollView, StyleSheet } from 'react-native';
+import { Alert, RefreshControl, ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { colors } from '@/shared/theme/colors';
 import { spacing } from '@/shared/theme/spacing';
+import { WordRemovalSnackbar } from '@/features/home/components/WordRemovalSnackbar';
 import { HomeHeader } from '@/features/home/components/HomeHeader';
 import { QuickAddWord } from '@/features/home/components/QuickAddWord';
 import { ContinueListeningCard } from '@/features/home/components/ContinueListeningCard';
@@ -14,8 +16,8 @@ import { HomeListeningStats } from '@/features/home/components/HomeListeningStat
 import { mockListeningStatistics } from '@/features/home/data/listening-statistics.mock';
 
 export default function HomeScreen() {
-  const { recentWords, totalWordCount, wordsLoading, wordsError, onAdded } = useRecentWords();
-  const { pronunciation, pronounce } = useWordPronunciation();
+  const { recentWords, totalWordCount, wordsLoading, wordsRefreshing, wordsError, onRefresh, onAdded, deletion, onDelete, onUndo } = useRecentWords();
+  const { pronunciation, pronounce, stopWord } = useWordPronunciation();
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -26,6 +28,14 @@ export default function HomeScreen() {
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
         showsVerticalScrollIndicator={false}
+        alwaysBounceVertical
+        refreshControl={<RefreshControl
+          refreshing={wordsRefreshing}
+          onRefresh={onRefresh}
+          tintColor={colors.primary}
+          colors={[colors.primary]}
+          progressBackgroundColor={colors.surface}
+        />}
       >
         <HomeHeader />
         <QuickAddWord onAdded={onAdded} />
@@ -44,9 +54,13 @@ export default function HomeScreen() {
           error={wordsError}
           onPronounce={pronounce}
           pronunciation={pronunciation}
+          deletingId={deletion?.pending ? String(deletion.pending.word.id) : undefined}
+          deleteDisabled={!deletion?.ready || deletion.busy || !!deletion.pending}
+          onDelete={id => { void onDelete(id).then(accepted => { if (accepted) stopWord(id); }); }}
         />
         <HomeListeningStats statistics={mockListeningStatistics} />
       </ScrollView>
+      {deletion?.pending && <WordRemovalSnackbar undoAvailable={deletion.undoAvailable} busy={deletion.busy} onUndo={() => void onUndo()} />}
     </SafeAreaView>
   );
 }

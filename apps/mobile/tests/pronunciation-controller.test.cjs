@@ -191,3 +191,9 @@ test('native play failure on readiness clears loading and does not retry', async
   player.emit({ isLoaded: true });
   assert.equal(player.plays, 1); assert.equal(player.removed, 1); assert.equal(s.errors.length, 1); assert.equal(s.state.phase, 'idle');
 });
+
+test('deleting a different word preserves playback, deleting the active word releases it', async () => {
+  const s = setup(); await s.controller.play(word()); s.players[0].emit({ playing: true });
+  s.controller.stopWord('27'); assert.equal(s.players[0].removed, 0); assert.equal(s.state.phase, 'playing');
+  s.controller.stopWord('23'); assert.equal(s.players[0].removed, 1); assert.equal(s.state.phase, 'idle');
+});

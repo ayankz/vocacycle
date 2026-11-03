@@ -1,4 +1,5 @@
 using System.Text.Json;
+using VocaCycle.Infrastructure.Services;
 using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
 using VocaCycle.Infrastructure.Data;
@@ -51,9 +52,9 @@ public sealed class PronunciationService(
         if (word.PronunciationAudioUrl == reference && File.Exists(path) && new FileInfo(path).Length > 0) return true;
         Directory.CreateDirectory(directory);
         // Recover a completed atomic write after a crash before the database update.
+        byte[]? bytes = null;
         if (!File.Exists(path) || new FileInfo(path).Length == 0)
         {
-            byte[] bytes;
             if (result.AudioUrl is not null)
             {
                 // A failed download remains a dictionary failure; never switches to paid TTS.
@@ -80,6 +81,12 @@ public sealed class PronunciationService(
                 if (claimed == 0) return true;
                 bytes = await audio.SynthesizeAsync(word.Text, cancellationToken);
             }
+        }
+        await using var publication = await db.Database.BeginTransactionAsync(cancellationToken);
+        var current = await WordDeletion.LockAsync(db, wordId, cancellationToken);
+        if (current is null || current.DeletedAt is not null) return true;
+        if (bytes is not null)
+        {
             var temporary = Path.Combine(directory, $".{filename}.{Guid.NewGuid():N}.tmp");
             try
             {
@@ -90,6 +97,7 @@ public sealed class PronunciationService(
         }
         await db.Words.Where(w => w.Id == wordId)
             .ExecuteUpdateAsync(u => u.SetProperty(w => w.PronunciationAudioUrl, reference), cancellationToken);
+        await publication.CommitAsync(cancellationToken);
         return true;
     }
 }

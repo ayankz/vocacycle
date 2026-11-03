@@ -18,7 +18,9 @@ public class VocaCycleDbContext : DbContext
     {
         modelBuilder.Entity<Word>()
             .HasIndex(word => word.Text)
-            .IsUnique();
+            .IsUnique()
+            .HasFilter("\"DeletedAt\" IS NULL");
+        modelBuilder.Entity<Word>().HasQueryFilter(word => word.DeletedAt == null);
         modelBuilder.Entity<WordExample>()
             .HasIndex(e => new { e.WordId, e.Position })
             .IsUnique();

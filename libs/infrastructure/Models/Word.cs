@@ -12,5 +12,7 @@ public class Word
     public string? DictionaryPronunciation { get; set; }
     [System.Text.Json.Serialization.JsonIgnore]
     public bool PronunciationSynthesisAttempted { get; set; }
+    [System.Text.Json.Serialization.JsonIgnore]
+    public DateTimeOffset? DeletedAt { get; set; }
     public List<WordExample> Examples { get; set; } = [];
 }

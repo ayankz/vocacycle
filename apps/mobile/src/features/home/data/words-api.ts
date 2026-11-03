@@ -16,7 +16,7 @@ async function errorMessage(response: Response) {
 }
 
 export async function getWords(signal?: AbortSignal): Promise<WordDto[]> {
-  const response = await fetch(url('/words'), { signal });
+  const response = await fetch(url('/words'), { signal, cache: 'no-store' });
   if (!response.ok) throw new Error(await errorMessage(response));
   return response.json() as Promise<WordDto[]>;
 }
@@ -29,4 +29,19 @@ export async function createWord(text: string): Promise<WordDto> {
   });
   if (!response.ok) throw new Error(await errorMessage(response));
   return response.json() as Promise<WordDto>;
+}
+
+export async function deleteWord(id: number, signal: AbortSignal): Promise<void> {
+  try {
+    const response = await fetch(url(`/words/${id}`), { method: 'DELETE', signal });
+    if (response.ok) return;
+    throw new Error(`Could not remove word (HTTP ${response.status}).`);
+  } catch (error) {
+    if (signal.aborted) throw error;
+    // A lost response may hide a successful DELETE. Confirm before restoring
+    // locally; GET does not create a word or regenerate audio.
+    const words = await getWords(signal);
+    if (!words.some(word => word.id === id)) return;
+    throw Object.assign(new Error('Word removal was rejected.'), { confirmedKept: true });
+  }
 }

@@ -76,6 +76,8 @@ export class PronunciationController {
     } catch { fail(); }
   };
 
+  stopWord = (id: string) => { if (this.state.wordId === id) this.stop(); };
+
   stop = () => {
     this.request++;
     this.clearTimeout();
