@@ -1,3 +1,4 @@
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useEffect } from 'react';
 import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
@@ -42,5 +43,5 @@ export default function RootLayout() {
     throw fontError;
   }
 
-  return <AppTabs />;
+  return <GestureHandlerRootView style={{ flex: 1 }}><AppTabs /></GestureHandlerRootView>;
 }

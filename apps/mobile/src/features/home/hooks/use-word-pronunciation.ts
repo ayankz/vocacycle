@@ -34,5 +34,5 @@ export function useWordPronunciation() {
     if (focused.current && AppState.currentState === 'active') void controller.play(word);
   }, [controller]);
 
-  return { pronunciation, pronounce };
+  return { pronunciation, pronounce, stopWord: controller.stopWord };
 }

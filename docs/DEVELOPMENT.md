@@ -222,3 +222,49 @@ leaves Add usable, and repeated GETs make no synthesis calls. Verify the Recent
 Words icon is hidden before availability and appears after a successful refresh,
 with no reserved empty control space. Playback remains intentionally unimplemented.
 Issue #8 must add the focused rendered-UI conditional-icon test alongside playback.
+
+
+## Swipe-to-delete vocabulary
+
+Apply `AddWordDeletion` before restarting the API and worker together:
+
+```sh
+dotnet ef database update --project libs/infrastructure --startup-project apps/api
+dotnet build VocaCycle.slnx
+```
+
+The migration adds nullable `DeletedAt` and makes spelling uniqueness apply only
+to active vocabulary. It does not rewrite existing IPA, translations or sessions.
+API and worker must share `VOCACYCLE_STORAGE`; the API now also needs permission
+to unlink standalone files in its `pronunciations` directory. Session files are
+never deleted. Do not downgrade this migration after re-adding an archived spelling
+without resolving duplicate spellings first; the old unique index includes all rows.
+
+Mobile uses the SDK-compatible `expo-sqlite` key/value store as a small deletion
+journal. No paid/provider calls occur on Undo. One pending removal is allowed at a
+time, preserving a full five-second Undo window. Other words can still be played,
+scrolled and refreshed. Timers pause outside focused, foreground Home. If the app
+closes, an expired operation is reconciled on the next foreground Home visit;
+there is no promise that JavaScript timers run while iOS suspends/terminates it.
+
+Backend regression checks create and drop their own disposable database and
+fixture directory. The explicit admin connection must permit CREATE DATABASE;
+no existing development data is migrated or deleted. HTTP providers are stubs,
+and the isolated API receives an unusable Redis endpoint, never the live queue.
+
+```sh
+WORD_DELETE_TEST_ADMIN='Host=127.0.0.1;Database=postgres;Username=postgres' dotnet run --project tests/WordDeletionChecks
+dotnet run --project tests/WordIpaChecks
+dotnet run --project tests/WordPronunciationChecks
+# apps/mobile
+npx tsc --noEmit
+npx expo lint
+node --test tests/*.test.cjs
+# repository root
+git diff --check
+```
+
+Test swipe direction, vertical scroll arbitration, card/neighbor animation,
+VoiceOver Delete/Undo, Reduce Motion, tab/background/force-close recovery,
+playback and pull-to-refresh on a physical iPhone before merging. Use existing
+fixture words/audio; no test requires triggering live ElevenLabs generation.

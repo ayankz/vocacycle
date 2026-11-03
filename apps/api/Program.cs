@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using VocaCycle.Infrastructure.Services;
 using VocaCycle.Infrastructure.Data;
 using VocaCycle.Api.Contracts;
 using VocaCycle.Infrastructure.Models;
@@ -56,6 +57,21 @@ app.MapGet("/words/{id:long}/pronunciation", async (long id, VocaCycleDbContext 
     ValidatePronunciation(word);
     if (word.PronunciationAudioUrl is null || PronunciationPath(id) is not { } path) return Results.NotFound();
     return Results.File(path, "audio/mpeg", enableRangeProcessing: true);
+});
+
+app.MapDelete("/words/{id:long}", async (long id, VocaCycleDbContext db, CancellationToken token) =>
+{
+    if (id <= 0) return Results.BadRequest(new { error = "Invalid word ID." });
+    try
+    {
+        await WordDeletion.DeleteAsync(db, id, builder.Configuration["VOCACYCLE_STORAGE"], token);
+        return Results.NoContent();
+    }
+    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+    {
+        app.Logger.LogWarning("Could not remove pronunciation file for Word {WordId} ({ErrorType}).", id, ex.GetType().Name);
+        return Results.Problem("Could not remove word. Please try again.", statusCode: 503);
+    }
 });
 
 app.MapPost("/words", async (CreateWordRequest request, VocaCycleDbContext db, IConnectionMultiplexer redis, ILogger<Program> logger) =>
@@ -202,7 +218,7 @@ app.MapGet("/audio-sessions/{id:long}", async (
     VocaCycleDbContext db
 ) =>
 {
-    var session = await db.AudioSessions
+    var session = await db.AudioSessions.IgnoreQueryFilters()
     .Include(s => s.Words)
     .ThenInclude(sw => sw.Word)
     .FirstOrDefaultAsync(s => s.Id == id);
@@ -329,7 +345,7 @@ app.MapPost("/audio-sessions/{id:long}/prepare-examples",
         VocaCycleDbContext db,
         IExampleGenerator generator) =>
     {
-        var session = await db.AudioSessions
+        var session = await db.AudioSessions.IgnoreQueryFilters()
             .Include(s => s.Words)
                 .ThenInclude(sw => sw.Word)
                     .ThenInclude(w => w.Examples)

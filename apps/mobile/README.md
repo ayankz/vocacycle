@@ -85,8 +85,8 @@ This adds no delay or retry, and does not enable background playback. Removal on
 completion, failure, blur or background releases the session keeper.
 
 Network/native errors or a ten-second preparation/buffering timeout show a short
-error alert and allow a manual retry. No automatic playback retry, synthesis,
-word refresh, or generation polling is added. Home blur/unmount, app background,
+error alert and allow a manual retry. No automatic playback retry or synthesis is performed. Issue #25 adds bounded
+availability refreshes separately from the playback controller. Home blur/unmount, app background,
 and OS playback interruptions stop and release pronunciation. Silent-mode playback
 is enabled; microphone permissions and background audio are disabled in app config.
 The continuous-session control remains its existing placeholder: no session player
@@ -102,8 +102,8 @@ node --test tests/*.test.cjs
 
 The tests use native-player stubs and render the actual row component with native
 host stubs. They cover URL resolution, playback races/replay/errors/timeouts,
-focus/background cleanup, and the absence of an icon or reserved control spacing
-for null, undefined, empty and whitespace audio references. Native device playback
+focus/background cleanup, and disabled unavailable controls for null, undefined, empty and whitespace
+audio references (updated by Issue #25). Native device playback
 still requires the following manual check.
 
 ### Expo Go on a physical iPhone
@@ -132,7 +132,8 @@ still requires the following manual check.
    and tap rapidly during playback; each tap should replay without overlap.
 7. If another saved word already has audio, switch rapidly between its control
    and apple's. Only the latest word should play. Do not generate extra audio just
-   for this test. Confirm rows with no audio reference have no play control or gap.
+   for this test. Confirm rows with no audio reference show a disabled neutral icon and
+   `Audio unavailable`, or `Generating audio…` within a new word’s polling window.
 8. Navigate to another tab during loading/playback, then return. Also background
    the app or open Control Center mid-playback. Audio should stop, controls should
    reset, and returning should not automatically resume. A new tap should work.
@@ -148,3 +149,177 @@ still requires the following manual check.
     or lock-screen controls should be requested by this feature.
 
 SDK reference: https://docs.expo.dev/versions/v58.0.0/sdk/audio/
+
+
+## Pronunciation status UX (Issue #25)
+
+Recent Words keeps generation availability separate from native playback status.
+Newly added words without an audio URL show a compact circular spinner and
+`Generating audio…`. A single list-wide GET refresh timer checks every two seconds
+(after the preceding request settles), with a maximum of 90 pronunciation polling
+attempts per new word. Translation/IPA retain their independent five-attempt
+budget while sharing that request and timer. Audio availability ends that word's
+pronunciation polling immediately. Requests time out after eight seconds; failures
+and timeouts consume attempts. No refresh requests generate or regenerate audio.
+
+**API limitation:** `GET /words` exposes a nullable `pronunciationAudioUrl`, not a
+job status. Null can mean queued, failed, missed enqueue, or missing storage. The
+mobile pending state is therefore a bounded inference for locally added words,
+not a confirmed backend generation status. Exhausted words and previously saved
+words without a URL show `Audio unavailable` with a disabled neutral icon. There
+is no generation retry action and no backend/schema change. Focus/foreground
+refresh can discover audio that arrives after the budget expires, but does not
+restart exhausted budgets. Pending budgets live in memory, not across app restarts.
+
+Home blur/unmount and app inactivity cancel polling and abort in-flight requests.
+Returning to focused, foreground Home refreshes once and resumes remaining
+budgets. Request generation guards discard stale responses, including responses
+arriving after a focus change. Delayed Add callbacks retain the new word without
+publishing to an inactive screen.
+
+Home also supports native pull-to-refresh, with an amber indicator on iOS and
+Android. Pull down at the top of Home to fetch current translations, IPA and audio
+URLs through the same words controller. GET requests bypass cached responses.
+Manual refresh works after polling has exhausted its budget and does not restart
+that budget or generate audio. An arriving audio URL changes the row to Ready
+independently of IPA.
+
+Repeated pulls are coalesced. A pull during an existing GET queues one fresh GET
+after it, with no concurrent list requests. The refresh indicator covers that
+queued request and clears on success or failure; failures preserve the current
+words and use the existing error label. The eight-second timeout releases the
+request slot even if cancellation does not settle the transport promise, and late
+responses cannot update state. Blur/background cancels refresh; returning to Home
+resets the indicator and refreshes through the existing focus lifecycle. Pulling
+does not stop or recreate the pronunciation player.
+
+Ready controls remain tappable during native loading; every tap still supersedes
+the previous playback request. The playback controller and its iOS audio-session
+settings are unchanged. Playing turns the word text and playback glyph amber,
+adds a restrained amber border and animated bars, and retains the translation.
+Completion/switching restores the previous row. Glyphs fade in over 200 ms; bar
+animations use native transforms, stop on unmount and respect Reduce Motion.
+The generation spinner has a dark circular background, a muted charcoal track
+and a short warm amber arc rotating continuously once per second. It uses the
+existing SVG dependency and native-driven React Native animation, unmounts when
+the Play control appears, and stops its loop/subscription on cleanup. Reduce
+Motion keeps the arc static. Native playback loading retains its existing small
+indicator. No percentages or progress bars are used for generation.
+Status and translation share a compact secondary line that wraps on narrow
+screens/large text rather than hiding status behind a truncated translation.
+
+Additional physical-iPhone review (use the LAN/API setup above):
+
+1. With the API and worker running, add a new English word. Confirm the generating
+   spinner and label appear, then the play control appears automatically when the
+   API exposes its MP3, with no manual refresh. Translation/IPA arriving first must
+   not stop pronunciation checks. Use an already approved provider configuration;
+   adding a word can invoke the backend's existing paid fallback.
+2. Tap a ready word once. Confirm reliable first-tap audio, amber **word text**,
+   amber bars/control and a subtle card border. Confirm translation remains visible
+   and completion restores normal styling. Short recordings may make this brief.
+3. Tap repeatedly during loading and playing, then rapidly switch between two
+   ready words. Only the latest request should play; the previous word must lose
+   its amber styling immediately. Repeat after completion.
+4. With the worker stopped, add a word and leave Home foregrounded. After 90 polls
+   (about three minutes on a fast connection; longer with slow/timed-out requests),
+   expect `Audio unavailable` and a disabled icon, with no regeneration action.
+   Restarting the worker may process queued work using existing provider settings.
+5. Navigate away, background the app, and return during pending generation and
+   during playback. Verify polling pauses outside foreground Home, no audio
+   continues, and stale responses do not restore old states. Remaining budgets
+   resume; exhausted budgets do not restart. Ready audio never auto-plays.
+6. Stop the API and tap an uncached ready word: the existing playback alert and
+   ten-second timeout remain, with no stuck amber state or loading indicator.
+   Restoring connectivity allows another playback tap without regenerating audio.
+7. Pull down at the top of Home. Confirm the native indicator is amber and clears
+   when words refresh. Repeat after polling has stopped, during playback, and
+   while the API is offline. Playback should continue; offline refresh should keep
+   the list, stop the indicator after the request timeout, and show the existing
+   error. Each GET has an eight-second bound; a queued pull can take longer.
+   Returning connectivity should allow another pull. Pull while a poll is in
+   flight and navigate away mid-refresh to check serialization and cleanup.
+8. Enable Reduce Motion and larger text. Confirm static bars under Reduce Motion,
+   readable status/translation and disabled/busy/selected VoiceOver control states.
+
+Automated validation uses `npx tsc --noEmit`, `npx expo lint`,
+`node --test tests/*.test.cjs` and `git diff --check`. Native iPhone behavior and
+visual fidelity still require the manual checks above.
+
+
+### Physical-iPhone synchronization investigation (Nov 3, 2026)
+
+The earlier report that bike (ID 27) stayed on `Generating audio…`, including
+after leaving and returning to Home, remains **not reproduced or explained**.
+Do not treat it as fixed by a speculative synchronization change.
+
+Read-only inspection of the connected Expo Go runtime confirmed the 90-attempt
+limit was loaded, bike's audio URL was present in both the controller and React
+state, and its rendered row received `pronunciationStatus: ready`. A GET through
+the iPhone's loaded `getWords` function also returned the ready URL. Metro was
+running from this mobile workspace. Glasses (ID 29) was observed pending and
+then ready automatically; the device user confirmed its translation, IPA and
+playback availability appeared successfully. These observations verify the
+current flow, not the cause of bike's earlier failure. No synchronization,
+readiness, lifecycle, API, backend or worker change was made for that report.
+
+To investigate a recurrence, capture the affected word ID, file/database/API
+availability and the still-stuck controller/React/row state before reloading.
+IPA remains independent of audio readiness.
+
+
+## Swipe-to-delete in Recent Words
+
+Swipe left to reveal a muted red trash/Delete action. Swiping fully never deletes;
+only tapping Delete (or the word text's VoiceOver Delete action) does. Opening one
+row closes the previous row. The existing gesture-handler and Reanimated libraries
+provide UI-thread gestures/animations; no new animation dependency was added.
+
+A removal fades/scales the row over 200 ms (1 → 0 opacity, 1 → 0.96 scale).
+Height and the row's own spacing collapse over 250 ms starting at 100 ms: the whole
+transition takes 350 ms and moves neighbors smoothly. Undo expands/fades the same
+row instead of re-adding it. System Reduce Motion skips these transitions. Normal
+pronunciation UI and native pull-to-refresh remain intact. Only deletion of the
+currently playing word stops/releases that clip; other playback continues.
+
+The bottom snackbar says `Word removed` and offers Undo for five seconds, above
+the tab/safe area. One pending removal is supported at a time so every accepted
+removal retains its complete Undo opportunity; other words remain playable and
+scrollable. Further deletions are disabled until Undo or completion.
+
+Before hiding a card, its ID/snapshot/deadline is persisted using SDK-compatible
+`expo-sqlite/kv-store`, scoped to the configured API origin. Undo clears this
+journal before restoring the card and makes no Add/TTS calls. At expiry, the client
+sends idempotent DELETE /words/{id}. No regeneration is performed. Confirmed API
+rejection restores the card with an error. If a DELETE response is lost, a GET
+checks whether the word actually remains before restoring it. If confirmation is
+also unavailable, the pending operation is retained with an error; pull-to-refresh
+or the next focused/foreground Home visit reconciles it. It never falsely restores
+a word the server may already have deleted.
+
+Background/blur cancels timers and requests. The persisted wall-clock deadline,
+not a background JS timer, governs recovery after force-close/relaunch. An expired
+operation completes on the next foreground Home visit; no execution is guaranteed
+while the app is suspended/terminated. SQLite failures prevent initial hiding or
+retain the operation rather than silently losing intent.
+
+Backend removal archives the word using `DeletedAt` so existing sessions keep their
+word text, translation, IPA and examples. Only the standalone pronunciation file is
+removed; session recordings are untouched. New enrichment claims skip deleted
+words. Final pronunciation publication and DELETE use the same short PostgreSQL
+row lock, preventing in-flight work from recreating deleted files. An already-sent
+provider request cannot be recalled, but its output is discarded after deletion.
+
+Apply `AddWordDeletion` and restart API **and** worker together before device use:
+
+```sh
+# Repository root; do not apply to a database you did not intend to migrate.
+dotnet ef database update --project libs/infrastructure --startup-project apps/api
+```
+
+The API now needs write/unlink permission in the shared `pronunciations/` directory.
+No development database migration or real vocabulary deletion was performed during
+implementation. Backend checks use an isolated disposable database and stubbed HTTP.
+Physical-iPhone validation remains necessary for swipe/scroll arbitration, the
+350 ms dissolve and neighboring movement, five-second Undo, force-close/relaunch,
+Reduce Motion/VoiceOver, playback and native pull-to-refresh.

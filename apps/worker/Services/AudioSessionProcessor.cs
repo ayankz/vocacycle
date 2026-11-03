@@ -28,7 +28,7 @@ public class AudioSessionProcessor
         await using var db =
             await _dbContextFactory.CreateDbContextAsync(cancellationToken);
 
-        var session = await db.AudioSessions
+        var session = await db.AudioSessions.IgnoreQueryFilters()
             .Include(s => s.Words)
             .ThenInclude(sw => sw.Word)
                 .ThenInclude(w => w.Examples)

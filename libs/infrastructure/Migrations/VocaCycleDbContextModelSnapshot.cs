@@ -74,6 +74,9 @@ namespace VocaCycle.Api.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
 
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("DictionaryPronunciation")
                         .HasColumnType("text");
 
@@ -96,7 +99,8 @@ namespace VocaCycle.Api.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("Text")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasFilter("\"DeletedAt\" IS NULL");
 
                     b.ToTable("Words");
                 });
