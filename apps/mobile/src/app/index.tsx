@@ -6,8 +6,6 @@ import { spacing } from '@/shared/theme/spacing';
 import { WordRemovalSnackbar } from '@/features/home/components/WordRemovalSnackbar';
 import { HomeHeader } from '@/features/home/components/HomeHeader';
 import { QuickAddWord } from '@/features/home/components/QuickAddWord';
-import { ContinueListeningCard } from '@/features/home/components/ContinueListeningCard';
-import { mockContinueListeningSession } from '@/features/home/data/continue-listening.mock';
 import { WordsReadyForAudioCard } from '@/features/home/components/WordsReadyForAudioCard';
 import { RecentWordsSection } from '@/features/home/components/RecentWordsSection';
 import { useRecentWords } from '@/features/home/hooks/use-recent-words';
@@ -39,10 +37,6 @@ export default function HomeScreen() {
       >
         <HomeHeader />
         <QuickAddWord onAdded={onAdded} />
-        <ContinueListeningCard
-          session={mockContinueListeningSession}
-          onPlay={() => Alert.alert('Playback coming soon', 'Audio playback is not available yet.')}
-        />
         <WordsReadyForAudioCard
           wordCount={17}
           onCreateAudio={() => Alert.alert('Create Audio', 'Audio generation is not available yet.')}

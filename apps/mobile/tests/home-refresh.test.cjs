@@ -14,11 +14,13 @@ function setup(refreshing) {
     }) },
     '@/features/home/hooks/use-word-pronunciation': { useWordPronunciation: () => ({ pronunciation, pronounce() {} }) },
   };
-  for (const name of ['HomeHeader', 'QuickAddWord', 'ContinueListeningCard', 'WordsReadyForAudioCard', 'RecentWordsSection', 'HomeListeningStats']) {
-    mocks[`@/features/home/components/${name}`] = { [name]: () => null };
+  const components = {};
+  for (const name of ['HomeHeader', 'QuickAddWord', 'WordsReadyForAudioCard', 'RecentWordsSection', 'HomeListeningStats']) {
+    components[name] = () => null;
+    mocks[`@/features/home/components/${name}`] = { [name]: components[name] };
   }
   const tree = createLoader(mocks)('src/app/index.tsx').default();
-  return { scroll: tree.props.children[0], native, onRefresh, pronunciation };
+  return { scroll: tree.props.children[0], native, onRefresh, pronunciation, components };
 }
 
 test('Home wires controlled native amber pull-to-refresh and keeps the playback state', () => {
@@ -35,4 +37,17 @@ test('Home wires controlled native amber pull-to-refresh and keeps the playback 
     const recent = s.scroll.props.children.find(child => child.props.pronunciation);
     assert.equal(recent.props.pronunciation, s.pronunciation);
   }
+});
+
+test('Home omits Continue Listening without a replacement and preserves the other sections in order', () => {
+  const s = setup(false);
+  const children = s.scroll.props.children;
+  assert.deepEqual(Array.from(children, child => child.type), [
+    s.components.HomeHeader,
+    s.components.QuickAddWord,
+    s.components.WordsReadyForAudioCard,
+    s.components.RecentWordsSection,
+    s.components.HomeListeningStats,
+  ]);
+  assert.equal(children[3].props.pronunciation, s.pronunciation);
 });
