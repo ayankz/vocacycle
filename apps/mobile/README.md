@@ -89,8 +89,12 @@ error alert and allow a manual retry. No automatic playback retry or synthesis i
 availability refreshes separately from the playback controller. Home blur/unmount, app background,
 and OS playback interruptions stop and release pronunciation. Silent-mode playback
 is enabled; microphone permissions and background audio are disabled in app config.
-The continuous-session control remains its existing placeholder: no session player
-currently exists to coordinate with. The existing design and routes are preserved.
+A session player and real resumable-session source are not implemented. Home
+omits Continue Listening entirely, with no mock card or empty-state message. The
+existing session-detail API does not expose playable audio, duration or listening
+progress, so Home cannot determine which session is resumable (Issue #5).
+The reusable card component is retained for future integration. Other Home
+sections and routes are unchanged.
 
 Validation from `apps/mobile`:
 
