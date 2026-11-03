@@ -39,7 +39,9 @@ function setup() {
 }
 
 test('Delete dissolves/scales for 200ms and overlaps height/spacing collapse for a total 350ms', () => {
-  const s = setup(); const tree = s.render(true); const cleanup = s.effects[0]();
+  const s = setup();
+  s.render(false).props.children.props.onLayout({ nativeEvent: { layout: { height: 100 } } });
+  const tree = s.render(true); const cleanup = s.effects[0]();
   const [opacity, scale, fraction] = s.values;
   assert.equal(opacity.value.to, 0); assert.equal(opacity.value.config.duration, 200);
   assert.equal(scale.value.to, 0.96); assert.equal(scale.value.config.duration, 200);
@@ -80,4 +82,63 @@ test('only one swipe row remains open and unmounting an old row does not clear t
   swipes.open('27', () => first++); swipes.open('28', () => second++);
   assert.equal(first, 1); swipes.dispose('27');
   swipes.open('29', () => {}); assert.equal(second, 1);
+});
+
+
+test('ordinary rows are immediately visible at natural height before effects or layout measurements', () => {
+  const s = setup(); const tree = s.render(false);
+  const style = tree.props.style[1]();
+  assert.equal(style.height, undefined);
+  assert.equal(style.opacity, 1);
+  assert.equal(style.transform[0].scale, 1);
+  assert.equal(style.marginBottom, 8);
+  assert.equal(tree.props.pointerEvents, 'auto');
+  assert.equal(tree.props.accessibilityElementsHidden, false);
+});
+
+test('zero, unavailable or invalid measurements cannot collapse a normal row', () => {
+  for (const height of [0, undefined, NaN, Infinity, -1]) {
+    const s = setup(); const tree = s.render(false);
+    tree.props.children.props.onLayout({ nativeEvent: { layout: { height } } });
+    const style = tree.props.style[1]();
+    assert.equal(style.height, undefined);
+    assert.equal(style.opacity, 1);
+    assert.equal(style.transform[0].scale, 1);
+  }
+});
+
+test('positive measurements leave normal rows at natural height and later zero events retain the last valid height', () => {
+  const s = setup(); const tree = s.render(false);
+  const layout = height => tree.props.children.props.onLayout({ nativeEvent: { layout: { height } } });
+  layout(100); assert.equal(tree.props.style[1]().height, undefined);
+  layout(120); assert.equal(tree.props.style[1]().height, undefined);
+  s.values[2].value = 0.5; // Mid-collapse/Undo uses the last valid measurement.
+  assert.equal(tree.props.style[1]().height, 60);
+  for (const height of [0, undefined, NaN, Infinity, -1]) {
+    layout(height); assert.equal(tree.props.style[1]().height, 60);
+  }
+});
+
+test('Undo without a usable measurement falls back to natural height and finishes fully visible', () => {
+  const s = setup(); s.render(true);
+  const tree = s.render(false);
+  assert.equal(tree.props.style[1]().height, undefined);
+  s.effects[0]();
+  assert.equal(s.values[0].value.animation.to, 1);
+  assert.equal(s.values[2].value.animation.to, 1);
+  // Simulate the completed UI-thread animations without manufacturing a height.
+  s.values[0].value = 1; s.values[1].value = 1; s.values[2].value = 1;
+  const style = tree.props.style[1]();
+  assert.equal(style.height, undefined); assert.equal(style.opacity, 1);
+  assert.equal(style.transform[0].scale, 1);
+});
+
+test('completed measured Undo releases explicit height so later content can lay out naturally', () => {
+  const s = setup(); const initial = s.render(false);
+  initial.props.children.props.onLayout({ nativeEvent: { layout: { height: 100 } } });
+  s.values[0].value = 0; s.values[1].value = 0.96; s.values[2].value = 0;
+  const tree = s.render(false);
+  assert.equal(tree.props.style[1]().height, 0);
+  s.values[2].value = 0.5; assert.equal(tree.props.style[1]().height, 50);
+  s.values[2].value = 1; assert.equal(tree.props.style[1]().height, undefined);
 });

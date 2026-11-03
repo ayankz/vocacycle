@@ -13,9 +13,9 @@ export function SwipeableWordRow({ word, playback, onPronounce, onDelete, deleti
   onDelete: (id: string) => void; deleting: boolean; deleteDisabled: boolean; swipes: SwipeRowCoordinator;
 }) {
   const swipe = useRef<SwipeableMethods>(null);
-  const opacity = useSharedValue(0);
-  const scale = useSharedValue(0.96);
-  const fraction = useSharedValue(0);
+  const opacity = useSharedValue(deleting ? 0 : 1);
+  const scale = useSharedValue(deleting ? 0.96 : 1);
+  const fraction = useSharedValue(deleting ? 0 : 1);
   const measured = useSharedValue(0);
   useEffect(() => {
     if (deleting) swipe.current?.close();
@@ -28,7 +28,11 @@ export function SwipeableWordRow({ word, playback, onPronounce, onDelete, deleti
   }, [deleting, fraction, opacity, scale]);
   useEffect(() => () => swipes.dispose(word.id), [swipes, word.id]);
   const rowStyle = useAnimatedStyle(() => ({
-    height: measured.value * fraction.value,
+    // Ordinary rows must lay out naturally before onLayout can measure them.
+    // Only collapse/Undo needs a fixed height; an unavailable measurement must
+    // never leave a normal/restored row stuck at zero height.
+    height: fraction.value === 1 || (measured.value === 0 && !deleting)
+      ? undefined : measured.value * fraction.value,
     marginBottom: 8 * fraction.value,
     opacity: opacity.value,
     transform: [{ scale: scale.value }],
@@ -36,7 +40,10 @@ export function SwipeableWordRow({ word, playback, onPronounce, onDelete, deleti
   const reveal = () => { if (swipe.current) swipes.open(word.id, swipe.current.close); };
   return <Animated.View style={[styles.container, rowStyle]} pointerEvents={deleting ? 'none' : 'auto'}
     accessibilityElementsHidden={deleting} importantForAccessibility={deleting ? 'no-hide-descendants' : 'auto'}>
-    <View onLayout={event => { measured.value = event.nativeEvent.layout.height; }}>
+    <View onLayout={event => {
+      const height = event.nativeEvent.layout.height;
+      if (Number.isFinite(height) && height > 0) measured.value = height;
+    }}>
       <Swipeable ref={swipe} enabled={!deleteDisabled && !deleting} overshootRight={false} overshootLeft={false}
         onSwipeableOpenStartDrag={reveal} onSwipeableWillOpen={reveal}
         renderRightActions={() => <Pressable accessibilityRole="button" accessibilityLabel={`Delete ${word.word}`}
