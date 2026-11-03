@@ -20,7 +20,7 @@ builder.Services.AddDbContextFactory<VocaCycleDbContext>(options =>
 );
 builder.Services.AddHttpClient("Ollama", client =>
 {
-    client.BaseAddress = new Uri("http://localhost:11434");
+    client.BaseAddress = new Uri(builder.Configuration["Ollama:BaseUrl"] ?? "http://localhost:11434");
     client.Timeout = TimeSpan.FromMinutes(3);
 });
 builder.Services.AddHttpClient("Tts", client =>
@@ -30,6 +30,11 @@ builder.Services.AddHttpClient("Tts", client =>
 });
 builder.Services.AddSingleton<ExampleGenerationService>();
 builder.Services.AddSingleton<AudioSessionProcessor>();
+builder.Services.AddSingleton<SessionSpeechClient>();
+builder.Services.AddSingleton<SessionAudioAssembler>();
+builder.Services.AddHttpClient("SessionElevenLabs", client => client.Timeout = TimeSpan.FromSeconds(30))
+    .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false, UseCookies = false })
+    .RedactLoggedHeaders(new[] { "xi-api-key" });
 builder.Services.AddHostedService<Worker>();
 // Independent hosted loop: slow translation requests cannot block audio jobs.
 builder.Services.AddHostedService<TranslationWorker>();

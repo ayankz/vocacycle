@@ -1,3 +1,4 @@
+using VocaCycle.Api.Endpoints;
 using Microsoft.EntityFrameworkCore;
 using VocaCycle.Infrastructure.Services;
 using VocaCycle.Infrastructure.Data;
@@ -159,104 +160,7 @@ app.MapGet("/words", async (VocaCycleDbContext db) =>
     }));
 });
 
-app.MapPost("/audio-sessions", async (CreateAudioSessionRequest request,
-    VocaCycleDbContext db, IConnectionMultiplexer redis) =>
-{
-    if (request.WordIds is null || request.WordIds.Count == 0)
-    {
-        return Results.BadRequest(new
-        {
-            error = "Select at least one word."
-        });
-    }
-
-    if (request.WordIds.Distinct().Count() != request.WordIds.Count)
-    {
-        return Results.BadRequest(new
-        {
-            error = "Duplicate word IDs are not allowed."
-        });
-    }
-
-    var words = await db.Words
-        .Where(word => request.WordIds.Contains(word.Id))
-        .ToListAsync();
-
-    if (words.Count != request.WordIds.Count)
-    {
-        return Results.BadRequest(new
-        {
-            error = "One or more words do not exist."
-        });
-    }
-
-    var session = new AudioSession
-    {
-        IncludeWordTranslation = request.IncludeWordTranslation,
-        IncludeExampleTranslations = request.IncludeExampleTranslations,
-
-        Words = request.WordIds
-            .Select((wordId, index) => new AudioSessionWord
-            {
-                WordId = wordId,
-                Position = index
-            })
-            .ToList()
-    };
-
-    db.AudioSessions.Add(session);
-    await db.SaveChangesAsync();
-
-    var redisDb = redis.GetDatabase();
-
-    await redisDb.StreamAddAsync(
-        "vocacycle:audio:jobs",
-        "sessionId",
-        session.Id.ToString()
-    );
-    return Results.Created($"/audio-sessions/{session.Id}", new
-    {
-        session.Id,
-        session.Status,
-        session.CreatedAt,
-        WordIds = request.WordIds
-    });
-});
-
-app.MapGet("/audio-sessions/{id:long}", async (
-    long id,
-    VocaCycleDbContext db
-) =>
-{
-    var session = await db.AudioSessions.IgnoreQueryFilters()
-    .Include(s => s.Words)
-    .ThenInclude(sw => sw.Word)
-    .FirstOrDefaultAsync(s => s.Id == id);
-
-    if (session is null)
-    {
-        return Results.NotFound(new
-        {
-            error = "Audio session not found."
-        });
-    }
-    return Results.Ok(new
-    {
-        session.Id,
-        session.Status,
-        session.CreatedAt,
-        Words = session.Words
-        .OrderBy(sw => sw.Position)
-        .Select(sw => new
-        {
-            sw.WordId,
-            sw.Word.Text,
-            sw.Word.Translation,
-            sw.Word.Ipa,
-            sw.Position
-        })
-    });
-});
+app.MapAudioSessions();
 
 app.MapGet("/words/{id:long}/examples", async (
     long id,

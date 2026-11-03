@@ -32,9 +32,9 @@ These screens and an approved visual design system already exist and will be tra
 
 For each selected word, the recording follows:
 
-**WORD → TRANSLATION → 5–7 natural English example sentences → NEXT WORD**
+**ENGLISH → 2-second silence → RUSSIAN → 2-second silence → RUSSIAN → 2-second silence → ENGLISH → NEXT WORD**
 
-The session is one continuous audio file accompanied by timeline metadata. Playback time will synchronize the displayed word, translation, current example sentence, word position, and example position.
+The MVP uses existing English words and Russian translations in selection order. It generates no example sentences and requires all translations before synthesis. The session is one continuous audio file accompanied by timeline metadata identifying speech, pauses and word position. Repeated listening replays the same recording without new synthesis. The mobile configuration screen still needs a separate update for Pairs.
 
 Planned playback capabilities include background and lock-screen playback, playback speed, seeking ±15 seconds, and session repeat. Offline/local caching is a later enhancement. These capabilities are not implemented yet.
 
@@ -55,5 +55,5 @@ Planned playback capabilities include background and lock-screen playback, playb
 - The primary experience is repeated listening to generated vocabulary sessions.
 - Progress reports measurable listening behavior rather than inferred vocabulary mastery.
 - An active listening day means a day with actual audio listening activity, not merely opening the app.
-- Translation language must be configurable; the initial product design currently uses English vocabulary with Russian translation as the working example.
+- The MVP supports English–Russian pairs only; configurable languages are deferred.
 - Detailed implementation contracts may evolve, but the approved core workflow and screen behavior should not be changed without an explicit product decision.

@@ -3,6 +3,7 @@ import { FlatList, Pressable, RefreshControl, StyleSheet, View } from 'react-nat
 import { router, useFocusEffect, useLocalSearchParams, useNavigation } from 'expo-router';
 import { SafeAreaView } from 'react-native-screens/experimental';
 
+import { parseSelectedIds } from '@/features/audio/data/audio-sessions-api';
 import { AppText } from '@/shared/ui/AppText';
 import { PlusIcon } from '@/shared/icons/PlusIcon';
 import { VocabularyControls } from './VocabularyControls';
@@ -16,7 +17,7 @@ import { useVocabularyWords } from '../hooks/use-vocabulary-words';
 import { selectAll, toggleSelection, validSelection } from '../data/selection';
 
 export function VocabularyScreen({ onContinue }: { onContinue: (wordIds: number[]) => void }) {
-  const { mode } = useLocalSearchParams<{ mode?: string }>();
+  const { mode, wordIds } = useLocalSearchParams<{ mode?: string; wordIds?: string }>();
   const selecting = mode === 'select';
   const navigation = useNavigation();
   const { words, loading, refreshing, error, refresh } = useVocabularyWords();
@@ -25,12 +26,13 @@ export function VocabularyScreen({ onContinue }: { onContinue: (wordIds: number[
   const visibleWords = filterVocabulary(words, query, filter);
   const membershipAvailable = words.every(word => typeof word.hasAudioSession === 'boolean');
   const notInAudioCount = membershipAvailable ? words.filter(word => !word.hasAudioSession).length : null;
-  const [selection, setSelection] = useState(() => ({ words, selecting, ids: new Set<number>() }));
+  const [selection, setSelection] = useState(() => ({ words, selecting, source: wordIds, ids: new Set<number>(parseSelectedIds(wordIds)) }));
   // Reconcile while rendering so a removed ID cannot be submitted or resurrected.
-  const selected = selection.words === words && selection.selecting === selecting
-    ? selection.ids : new Set(selecting ? validSelection(selection.ids, words) : []);
-  if (selection.words !== words || selection.selecting !== selecting) {
-    setSelection({ words, selecting, ids: selected });
+  const candidate = selection.source === wordIds ? selection.ids : new Set(parseSelectedIds(wordIds));
+  const selected = selection.words === words && selection.selecting === selecting && selection.source === wordIds
+    ? selection.ids : new Set(selecting ? loading || error ? candidate : validSelection(candidate, words) : []);
+  if (selection.words !== words || selection.selecting !== selecting || selection.source !== wordIds) {
+    setSelection({ words, selecting, source: wordIds, ids: selected });
   }
   const setSelected = (value: Set<number> | ((previous: Set<number>) => Set<number>)) => {
     setSelection(previous => ({ ...previous, ids: typeof value === 'function' ? value(previous.ids) : value }));
@@ -42,12 +44,12 @@ export function VocabularyScreen({ onContinue }: { onContinue: (wordIds: number[
   // Target this route, even when another tab is already focused during cleanup.
   useFocusEffect(useCallback(() => () => {
     setSelection(previous => ({ ...previous, ids: new Set() }));
-    navigation.setParams({ mode: undefined } as never);
+    navigation.setParams({ mode: undefined, wordIds: undefined } as never);
   }, [navigation, setSelection]));
 
   const cancel = () => {
     setSelected(new Set());
-    router.setParams({ mode: undefined });
+    router.setParams({ mode: undefined, wordIds: undefined });
   };
   const continueSelection = () => {
     if (!canContinue) return;

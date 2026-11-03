@@ -26,12 +26,19 @@ public class Worker : BackgroundService
     {
         const string stream = "vocacycle:audio:jobs";
         const string group = "audio-workers";
-        const string consumer = "dotnet-worker-1";
+        var consumer = $"audio-{Environment.MachineName}-{Environment.ProcessId}";
         const int retryIdleTimeMs = 60_000;
+        var groupReady = false;
         while (!stoppingToken.IsCancellationRequested)
         {
             try
             {
+                if (!groupReady)
+                {
+                    try { await _redis.StreamCreateConsumerGroupAsync(stream, group, "0-0", createStream: true); }
+                    catch (RedisServerException ex) when (ex.Message.Contains("BUSYGROUP")) { }
+                    groupReady = true;
+                }
                 var claimed = await _redis.StreamAutoClaimAsync(
                     stream,
                     group,
@@ -78,9 +85,11 @@ public class Worker : BackgroundService
                     }
                     try
                     {
-                        await _processor.ProcessAsync(sessionId, stoppingToken);
-                        await _redis.StreamAcknowledgeAsync(stream, group, message.Id);
-                        _logger.LogInformation("Acknowledged message: {MessageId}", message.Id);
+                        if (await _processor.ProcessAsync(sessionId, stoppingToken))
+                        {
+                            await _redis.StreamAcknowledgeAsync(stream, group, message.Id);
+                            _logger.LogInformation("Acknowledged message: {MessageId}", message.Id);
+                        }
                     }
                     catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
                     {
@@ -106,6 +115,7 @@ public class Worker : BackgroundService
             }
             catch (RedisException ex)
             {
+                groupReady = false;
                 _logger.LogError(
                     ex,
                     "Redis operation failed. Retrying in 5 seconds.");

@@ -1,0 +1,31 @@
+import { StyleSheet } from 'react-native';
+import { colors } from '@/shared/theme/colors';
+
+export const audioStyles = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: colors.backgroundSecondary },
+  scroll: { flex: 1 },
+  content: { padding: 16, gap: 14, paddingBottom: 24 },
+  header: { minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, borderBottomWidth: 1, borderColor: colors.cardBorder },
+  headerCopy: { flex: 1, gap: 2 },
+  back: { minWidth: 40, minHeight: 44, alignItems: 'center', justifyContent: 'center', transform: [{ rotate: '180deg' }] },
+  profile: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.primarySubtle, borderWidth: 1, borderColor: colors.primary, justifyContent: 'center', alignItems: 'center' },
+  card: { padding: 16, backgroundColor: colors.surface, borderRadius: 16, borderWidth: 1, borderColor: colors.cardBorder, gap: 12 },
+  row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  copy: { flex: 1, gap: 4 },
+  heading: { fontSize: 16, lineHeight: 22 },
+  caption: { fontSize: 12, lineHeight: 17 },
+  action: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 4 },
+  primary: { minHeight: 56, borderRadius: 16, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8, paddingHorizontal: 16 },
+  disabled: { opacity: 0.45 },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  chip: { borderRadius: 30, backgroundColor: colors.surfaceElevated, paddingHorizontal: 10, paddingVertical: 4 },
+  chipText: { fontFamily: 'JetBrainsMono_400Regular', fontSize: 12, lineHeight: 18 },
+  segments: { flexDirection: 'row', gap: 8, padding: 4, borderRadius: 12, backgroundColor: colors.backgroundSecondary, borderWidth: 1, borderColor: colors.cardBorder },
+  segment: { flex: 1, minHeight: 44, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  selected: { backgroundColor: colors.primary },
+  setting: { paddingTop: 12, borderTopWidth: 1, borderColor: colors.cardBorder, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  summary: { backgroundColor: colors.surfaceElevated, borderTopColor: colors.primary, borderTopWidth: 3 },
+  totals: { flexDirection: 'row', paddingVertical: 10, borderRadius: 12, backgroundColor: colors.backgroundSecondary },
+  total: { flex: 1, alignItems: 'center', paddingHorizontal: 4, gap: 4 },
+  note: { textAlign: 'center' },
+});
