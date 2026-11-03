@@ -1,35 +1,52 @@
+import { DarkTheme, ThemeProvider } from 'expo-router';
 import { NativeTabs } from 'expo-router/native-tabs';
 
 import { colors } from '@/shared/theme/colors';
 
+const tabTheme = {
+  ...DarkTheme,
+  colors: {
+    ...DarkTheme.colors,
+    primary: colors.primary,
+    background: colors.tabBarBackground,
+    card: colors.tabBarBackground,
+    border: colors.tabBarBorder,
+    text: colors.textPrimary,
+  },
+};
+const tabContentStyle = { backgroundColor: colors.tabBarBackground };
+
 export default function AppTabs() {
   return (
+    <ThemeProvider value={tabTheme}>
     <NativeTabs
       backgroundColor={colors.tabBarBackground}
       tintColor={colors.primary}
-      iconColor={colors.tabInactive}
+      iconColor={{ default: colors.tabInactive, selected: colors.primary }}
+      labelStyle={{ default: { color: colors.tabInactive }, selected: { color: colors.primary } }}
+      blurEffect="none"
       disableTransparentOnScrollEdge
     >
-      <NativeTabs.Trigger name="index">
+      <NativeTabs.Trigger name="index" contentStyle={tabContentStyle}>
         <NativeTabs.Trigger.Label>Home</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon
           sf={{ default: 'house', selected: 'house.fill' }}
         />
       </NativeTabs.Trigger>
 
-      <NativeTabs.Trigger name="vocabulary">
+      <NativeTabs.Trigger name="vocabulary" contentStyle={tabContentStyle} disableAutomaticContentInsets>
         <NativeTabs.Trigger.Label>Vocabulary</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon
           sf={{ default: 'book', selected: 'book.fill' }}
         />
       </NativeTabs.Trigger>
 
-      <NativeTabs.Trigger name="audio">
+      <NativeTabs.Trigger name="audio" contentStyle={tabContentStyle}>
         <NativeTabs.Trigger.Label>Audio</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf="headphones" />
       </NativeTabs.Trigger>
 
-      <NativeTabs.Trigger name="progress">
+      <NativeTabs.Trigger name="progress" contentStyle={tabContentStyle}>
         <NativeTabs.Trigger.Label>Progress</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon
           sf={{
@@ -39,5 +56,6 @@ export default function AppTabs() {
         />
       </NativeTabs.Trigger>
     </NativeTabs>
+    </ThemeProvider>
   );
 }

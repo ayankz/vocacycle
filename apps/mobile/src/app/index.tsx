@@ -1,4 +1,5 @@
-import { Alert, RefreshControl, ScrollView, StyleSheet } from 'react-native';
+import { RefreshControl, ScrollView, StyleSheet } from 'react-native';
+import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { colors } from '@/shared/theme/colors';
@@ -38,8 +39,11 @@ export default function HomeScreen() {
         <HomeHeader />
         <QuickAddWord onAdded={onAdded} />
         <WordsReadyForAudioCard
-          wordCount={17}
-          onCreateAudio={() => Alert.alert('Create Audio', 'Audio generation is not available yet.')}
+          wordCount={totalWordCount}
+          loading={wordsLoading}
+          error={wordsError}
+          onRetry={onRefresh}
+          onCreateAudio={() => router.navigate({ pathname: '/vocabulary', params: { mode: 'select' } })}
         />
         <RecentWordsSection
           words={recentWords}
