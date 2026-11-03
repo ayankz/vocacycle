@@ -147,6 +147,36 @@ References checked for this implementation:
 - [ElevenLabs synthesis contract](https://elevenlabs.io/docs/api-reference/text-to-speech/convert)
 - [ElevenLabs rate-limit diagnostics](https://elevenlabs.io/docs/help-center/technical/api-error-code-429)
 
+### Home data contracts (Issue #10)
+
+Home reuses `GET /words` for Recent Words, the Create Audio CTA and the saved-word
+statistic. Quick Add, Delete/Undo, focus and pull-to-refresh keep that data current.
+The remaining session contracts are unavailable:
+
+- **Session listing and counts:** `POST /audio-sessions` creates a session and
+  `GET /audio-sessions/{id}` reads a known session. There is no collection/latest
+  session response or authoritative count of completed, playable sessions.
+- **Playable session and timeline:** the session response has no continuous audio
+  URL, duration or timeline mapping playback time to words/examples. Standalone
+  `/words/{id}/pronunciation` audio is not a playable Audio Session.
+- **Listening activity:** no persisted playback position, resumable/completed state
+  or recorded listening minutes exist. `AudioSessionWord.Position` is word order,
+  not playback progress; session duration cannot substitute for time listened.
+
+Consequently, Home omits Continue Listening entirely: it cannot identify a real
+resumable session. Sessions and Listened display `—` (unavailable), not fabricated
+zeroes. Saved words show the real count, including confirmed `0`; `…` means initial
+loading, and failed refreshes retain a known count marked stale. An unknown count
+after a failed first load remains unavailable.
+
+Related work: [Home Data Integration #10](https://github.com/ayankz/vocacycle/issues/10),
+[Continue Listening #5](https://github.com/ayankz/vocacycle/issues/5),
+[Home Statistics #9](https://github.com/ayankz/vocacycle/issues/9) and
+[Create Audio configuration #30](https://github.com/ayankz/vocacycle/issues/30).
+These links identify related scope; session listing/counts, playable metadata and
+listening persistence still require separately scoped contract work. This Home
+integration does not introduce endpoints, analytics or a player.
+
 ### Chosen technical direction
 
 | Area | Decision |
