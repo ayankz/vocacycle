@@ -137,8 +137,8 @@ test('Vocabulary alone opts out of native automatic scroll insets', () => {
   function NativeTabs() {}
   NativeTabs.Trigger = 'trigger';
   NativeTabs.Trigger.Label = 'label'; NativeTabs.Trigger.Icon = 'icon';
-  const load = createLoader({ 'expo-router/native-tabs': { NativeTabs } });
-  const tabs = load('src/components/app-tabs.tsx').default().props.children;
+  const load = createLoader({ 'expo-router': { ThemeProvider: 'theme', DarkTheme: { dark: true, colors: {} } }, 'expo-router/native-tabs': { NativeTabs } });
+  const tabs = load('src/components/app-tabs.tsx').default().props.children.props.children;
   assert.equal(tabs.find(tab => tab.props.name === 'vocabulary').props.disableAutomaticContentInsets, true);
   assert.equal(tabs.find(tab => tab.props.name === 'index').props.disableAutomaticContentInsets, undefined);
 });
