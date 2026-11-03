@@ -44,6 +44,7 @@ export function useRecentWords() {
     })),
     totalWordCount: words.length - (deletion.pending ? 1 : 0),
     wordsLoading: state.loading,
+    wordsLoaded: state.hasLoaded ?? false,
     wordsRefreshing: state.refreshing,
     onRefresh: () => { controller.refreshManually(); void deletions.retry(); },
     wordsError: deletion.error ?? state.error,

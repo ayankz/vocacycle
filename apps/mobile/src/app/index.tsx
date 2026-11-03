@@ -12,10 +12,9 @@ import { RecentWordsSection } from '@/features/home/components/RecentWordsSectio
 import { useRecentWords } from '@/features/home/hooks/use-recent-words';
 import { useWordPronunciation } from '@/features/home/hooks/use-word-pronunciation';
 import { HomeListeningStats } from '@/features/home/components/HomeListeningStats';
-import { mockListeningStatistics } from '@/features/home/data/listening-statistics.mock';
 
 export default function HomeScreen() {
-  const { recentWords, totalWordCount, wordsLoading, wordsRefreshing, wordsError, onRefresh, onAdded, deletion, onDelete, onUndo } = useRecentWords();
+  const { recentWords, totalWordCount, wordsLoading, wordsLoaded, wordsRefreshing, wordsError, onRefresh, onAdded, deletion, onDelete, onUndo } = useRecentWords();
   const { pronunciation, pronounce, stopWord } = useWordPronunciation();
 
   return (
@@ -56,7 +55,7 @@ export default function HomeScreen() {
           deleteDisabled={!deletion?.ready || deletion.busy || !!deletion.pending}
           onDelete={id => { void onDelete(id).then(accepted => { if (accepted) stopWord(id); }); }}
         />
-        <HomeListeningStats statistics={mockListeningStatistics} />
+        <HomeListeningStats statistics={{ wordsSaved: wordsLoading || (wordsError && !wordsLoaded) ? null : totalWordCount, sessions: null, listenedMinutes: null }} loading={wordsLoading} error={wordsError} />
       </ScrollView>
       {deletion?.pending && <WordRemovalSnackbar undoAvailable={deletion.undoAvailable} busy={deletion.busy} onUndo={() => void onUndo()} />}
     </SafeAreaView>
