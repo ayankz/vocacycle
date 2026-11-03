@@ -156,9 +156,8 @@ The remaining session contracts are unavailable:
 - **Session listing and counts:** `POST /audio-sessions` creates a session and
   `GET /audio-sessions/{id}` reads a known session. There is no collection/latest
   session response or authoritative count of completed, playable sessions.
-- **Playable session and timeline:** the session response has no continuous audio
-  URL, duration or timeline mapping playback time to words/examples. Standalone
-  `/words/{id}/pronunciation` audio is not a playable Audio Session.
+- **Playable session and timeline:** implemented by [Issue #30](https://github.com/ayankz/vocacycle/issues/30)
+  below. Standalone `/words/{id}/pronunciation` audio remains separate.
 - **Listening activity:** no persisted playback position, resumable/completed state
   or recorded listening minutes exist. `AudioSessionWord.Position` is word order,
   not playback progress; session duration cannot substitute for time listened.
@@ -173,8 +172,8 @@ Related work: [Home Data Integration #10](https://github.com/ayankz/vocacycle/is
 [Continue Listening #5](https://github.com/ayankz/vocacycle/issues/5),
 [Home Statistics #9](https://github.com/ayankz/vocacycle/issues/9) and
 [Create Audio configuration #30](https://github.com/ayankz/vocacycle/issues/30).
-These links identify related scope; session listing/counts, playable metadata and
-listening persistence still require separately scoped contract work. This Home
+These links identify related scope; session listing/counts and listening
+persistence still require separately scoped contract work. This Home
 integration does not introduce endpoints, analytics or a player.
 
 ### Vocabulary discovery (Issue #35)
@@ -199,6 +198,64 @@ Validation: `dotnet build VocaCycle.slnx`, migration/model check, existing
 `WordDeletionChecks` against its disposable database, and mobile tests. No worker
 or paid provider is invoked by discovery queries or these checks.
 
+### Audio Session generation: English–Russian Pairs
+
+`POST /audio-sessions` accepts 1–20 distinct active word IDs in playback order and
+an optional client `requestId` UUID. The existing Redis stream and idempotency
+index remain. All new sessions use Pairs; legacy example-count/translation flags
+are accepted but ignored. Responses expose `mode: pairs` and store
+`ExamplesPerWord = 0`, word translation enabled and example translation disabled.
+The EF sentinel matches the legacy database default (5), so explicit zero is
+inserted correctly without changing the schema. Existing nonzero counts identify
+legacy example sessions. Completed recordings remain readable; unfinished legacy
+jobs fail before paid synthesis rather than reinterpret old checkpoints.
+
+API and worker validate the entire selection, including stored Russian translations,
+before any paid call. The worker snapshots database content in `ContentJson` with
+an empty examples list. Example-generation code/tables remain but are outside the
+active session path. Ollama may still serve the independent word-enrichment worker.
+
+Each pair plays English → 2000 ms silence → Russian → 2000 ms silence → Russian →
+2000 ms silence → English. Speech uses explicit `en`/`ru` language
+codes. FFmpeg normalizes each unique segment once per session to mono 24 kHz PCM,
+generates silence locally and concatenates one MP3. Timeline entries distinguish
+`word`, `word-translation`, `recall-pause` and `transition`; they retain word IDs,
+selection positions and measured millisecond boundaries. MP3 encoder padding can
+add a small final-duration difference. The resulting file can be replayed/looped
+without regeneration; no mobile change is included in this backend slice.
+
+Shared raw MP3s live in `VOCACYCLE_STORAGE/speech-segments/<sha256>.mp3`.
+Keys include exact text, language, provider/endpoint, model, voice, output format
+and synthesis-version identity. No custom voice settings are currently sent.
+A PostgreSQL two-integer advisory lock serializes cache fills across workers,
+separately from the existing per-session lock. Flushed, exclusive `.claim` files
+are saved before paid requests; flushed MP3s are atomically published afterward.
+Completed files are reused across sessions. A claim without an MP3 blocks any
+automatic paid retry, even for another session. Corrupt cached files also fail
+without regeneration. Cache claims and recordings must be backed up together.
+For English, the worker first tries the word's canonical local pronunciation URL.
+It rejects symlinked descendants, bounds and validates the MP3, snapshots it into
+session storage and normalizes it through FFmpeg. Both English occurrences reuse
+that normalized segment. Missing, inaccessible or invalid audio falls back to the
+speech cache/TTS path; cancellation still stops generation. Imported pronunciation
+may use a different voice and is never stored under an ElevenLabs fingerprint.
+Old session files still lack a trustworthy synthesis fingerprint for cache import.
+
+`GET /audio-sessions/{id}` returns real pending/processing/ready/failed status,
+stage, safe errors and, when Ready, measured duration and audio/timeline URLs.
+Files live under shared `VOCACYCLE_STORAGE/sessions/session-{id}/`; audio supports
+HTTP ranges and timeline metadata is also persisted in PostgreSQL. Ready is saved
+only after atomic file publication. Missing artifacts are reported unavailable.
+Generation is bounded to 30 minutes; failures are terminal, not automatic paid
+retries. Worker shutdown reports interruption; crash recovery uses checkpoints.
+
+Mobile status checks run every three seconds while focused/foreground, abort on
+blur and time out after ten seconds. After 30 minutes checks pause without claiming
+backend failure; Check status is a read-only recovery action. Playback reuses the
+existing iPhone-safe controller, with Stop/replay and navigation/background cleanup.
+This slice does not track listened minutes or implement a library/resume contract;
+Home's unavailable metrics and hidden Continue Listening remain intentional.
+
 ### Chosen technical direction
 
 | Area | Decision |
@@ -208,8 +265,8 @@ or paid provider is invoked by discovery queries or these checks.
 | Backend | C#, ASP.NET Core Web API |
 | Persistence | Entity Framework Core with PostgreSQL |
 | Cloud direction | AWS |
-| Example generation | LLM API; provider undecided |
-| Speech generation | Multilingual TTS API; provider undecided |
+| Session content | Stored English–Russian word pairs; no example generation |
+| Speech generation | ElevenLabs with a configured multilingual model and voice |
 | Audio processing | FFmpeg |
 
 The initial implementation will be a mobile client calling one ASP.NET Core API, with the API using EF Core to access PostgreSQL. The backend will begin as a modular monolith: one backend application with clear responsibilities and testable business logic, not independently deployed microservices.
@@ -235,13 +292,10 @@ The timeline will map playback time to the current word, translation, example se
 
 ### Generation pipeline
 
-1. Accept the selected saved words, typically 5–20.
-2. Obtain the word translation and generate 5–7 natural English example sentences per word. The exact translation source and language-generation provider will be decided during implementation.
-3. Produce speech with a multilingual TTS integration.
-4. Process and assemble speech into a continuous recording with FFmpeg.
-5. Produce matching timeline metadata and make the completed session available to the mobile player.
-
-This is a conceptual pipeline, not an implemented service design. Word translation uses Google Cloud Translation Basic v2 in Production and Ollama in Development (English to Russian); other provider decisions remain open. External AI, TTS, and storage providers will be isolated behind focused interfaces when integrations are added.
+The current English–Russian Pairs implementation is described above. Cloud storage,
+background playback and deployment evolution remain future work. Word enrichment
+still uses Google Cloud Translation Basic v2 in Production and Ollama in Development;
+these independent workers are not invoked by audio-session generation.
 
 ### Playback and infrastructure evolution
 

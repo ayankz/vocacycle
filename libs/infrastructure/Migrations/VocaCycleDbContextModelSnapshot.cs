@@ -30,8 +30,23 @@ namespace VocaCycle.Api.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
 
+                    b.Property<string>("AudioUrl")
+                        .HasColumnType("text");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<long?>("DurationMs")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Error")
+                        .HasColumnType("text");
+
+                    b.Property<int>("ExamplesPerWord")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(5)
+                        .HasSentinel(5);
 
                     b.Property<bool>("IncludeExampleTranslations")
                         .HasColumnType("boolean");
@@ -39,11 +54,30 @@ namespace VocaCycle.Api.Migrations
                     b.Property<bool>("IncludeWordTranslation")
                         .HasColumnType("boolean");
 
+                    b.Property<Guid?>("RequestId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Stage")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("SynthesisClaimsJson")
+                        .HasColumnType("text");
+
+                    b.Property<string>("TimelineJson")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("RequestId")
+                        .IsUnique();
 
                     b.ToTable("AudioSessions");
                 });
@@ -55,6 +89,9 @@ namespace VocaCycle.Api.Migrations
 
                     b.Property<long>("WordId")
                         .HasColumnType("bigint");
+
+                    b.Property<string>("ContentJson")
+                        .HasColumnType("text");
 
                     b.Property<int>("Position")
                         .HasColumnType("integer");
@@ -121,6 +158,9 @@ namespace VocaCycle.Api.Migrations
 
                     b.Property<string>("Text")
                         .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Translation")
                         .HasColumnType("text");
 
                     b.Property<long>("WordId")

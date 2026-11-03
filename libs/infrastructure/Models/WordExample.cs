@@ -10,5 +10,7 @@ public class WordExample
 
     public required string Text { get; set; }
 
+    public string? Translation { get; set; }
+
     public int Position { get; set; }
 }

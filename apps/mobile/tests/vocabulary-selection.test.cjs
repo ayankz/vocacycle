@@ -175,3 +175,14 @@ test('Add shortcut opens Home; counts follow real metadata; search has no sessio
   s.state.words = []; s.state.error = 'offline'; tree = s.render();
   assert.equal(controls(tree).props.count, null);
 });
+
+test('returning from configuration restores IDs, retains them during load and reconciles missing words', () => {
+  const s = setup(); s.params.wordIds = '[29,27,999]'; s.state.loading = true; s.state.words = [];
+  s.render(); s.state.loading = false; s.state.words = words; let tree = s.render();
+  assert.equal(list(tree).props.renderItem({ item: words[0] }).props.accessibilityState.checked, true);
+  assert.equal(list(tree).props.renderItem({ item: words[1] }).props.accessibilityState.checked, true);
+  action(tree).props.onPress(); assert.deepEqual(s.calls[0], [29, 27]);
+  s.state.words = [words[1]]; tree = s.render(); action(tree).props.onPress(); assert.deepEqual(s.calls[1], [29]);
+  s.params.wordIds = '[27]'; s.state.words = words; tree = s.render();
+  assert.equal(list(tree).props.renderItem({ item: words[1] }).props.accessibilityState.checked, false);
+});

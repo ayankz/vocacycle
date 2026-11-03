@@ -20,6 +20,10 @@ export default function AppTabs() {
   return (
     <ThemeProvider value={tabTheme}>
     <NativeTabs
+      hidden={false}
+      minimizeBehavior="never"
+      preferredPlacement="tabBar"
+      activityEnabled={false}
       backgroundColor={colors.tabBarBackground}
       tintColor={colors.primary}
       iconColor={{ default: colors.tabInactive, selected: colors.primary }}
@@ -31,6 +35,7 @@ export default function AppTabs() {
         <NativeTabs.Trigger.Label>Home</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon
           sf={{ default: 'house', selected: 'house.fill' }}
+          md="home"
         />
       </NativeTabs.Trigger>
 
@@ -38,12 +43,13 @@ export default function AppTabs() {
         <NativeTabs.Trigger.Label>Vocabulary</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon
           sf={{ default: 'book', selected: 'book.fill' }}
+          md="menu_book"
         />
       </NativeTabs.Trigger>
 
-      <NativeTabs.Trigger name="audio" contentStyle={tabContentStyle}>
+      <NativeTabs.Trigger name="audio" disablePopToTop disableAutomaticContentInsets contentStyle={tabContentStyle}>
         <NativeTabs.Trigger.Label>Audio</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon sf="headphones" />
+        <NativeTabs.Trigger.Icon sf="headphones" md="headphones" />
       </NativeTabs.Trigger>
 
       <NativeTabs.Trigger name="progress" contentStyle={tabContentStyle}>
@@ -53,6 +59,7 @@ export default function AppTabs() {
             default: 'chart.bar',
             selected: 'chart.bar.fill',
           }}
+          md="bar_chart"
         />
       </NativeTabs.Trigger>
     </NativeTabs>

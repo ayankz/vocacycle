@@ -268,3 +268,58 @@ Test swipe direction, vertical scroll arbitration, card/neighbor animation,
 VoiceOver Delete/Undo, Reduce Motion, tab/background/force-close recovery,
 playback and pull-to-refresh on a physical iPhone before merging. Use existing
 fixture words/audio; no test requires triggering live ElevenLabs generation.
+
+
+## English–Russian Pairs Audio Sessions
+
+No new database migration is needed beyond the existing `AddSessionGeneration`
+migration. New sessions store `ExamplesPerWord = 0`; the EF sentinel is configured
+to preserve zero despite the legacy database default of 5. Restart API and worker
+together. Legacy request example-count/translation flags are ignored for new sessions.
+Completed old recordings remain readable; unfinished legacy jobs fail without paid
+backfill. Existing examples, session data and vocabulary are retained.
+
+API and worker must share the same absolute persistent `VOCACYCLE_STORAGE` path.
+All workers must share its `speech-segments/` directory and the same PostgreSQL
+database. The worker needs directory creation, read/write and atomic rename access.
+Do not clear this directory as disposable session output: `.claim` files prevent
+repeating ambiguous/failed paid requests across sessions. A claim without an MP3
+requires manual investigation and explicit recovery; a new request ID does not
+bypass it. Successfully cached segments survive failed sessions and remain reusable.
+Existing English pronunciation MP3s are reused when the canonical local URL resolves
+to a bounded, valid file beneath storage with no symlinked descendants and FFmpeg
+normalization succeeds. The worker copies audio into session storage and reuses it
+for both English occurrences. Missing, inaccessible or invalid recordings fall back
+to the existing speech cache/TTS path. Imported audio can have a different voice;
+it is never added to the ElevenLabs cache under unverified synthesis settings.
+
+Keep worker-only `ElevenLabs__ApiKey`, `ElevenLabs__VoiceId`, `ElevenLabs__ModelId`.
+Use a configured voice/model supporting English and Russian. Session speech honors
+`ElevenLabs__OutputFormat` (`mp3_22050_32`, `mp3_44100_64`, `mp3_44100_128`), defaulting
+to the previous `mp3_44100_128`. No other new settings are required. Requests retain
+a 30-second deadline and have no automatic paid retry. Existing pronunciation
+configuration and its separate cache are unchanged.
+
+Install FFmpeg/ffprobe on PATH, or keep `FFmpeg__Path` / `FFmpeg__ProbePath`.
+Ollama is not used for sessions; independent word enrichment may still need it.
+Every selected word must already have a valid stored Russian translation. The API
+rejects invalid selections with HTTP 400; the worker revalidates all words before
+synthesis. Playback order follows the request IDs. All three pauses within each pair are exactly
+2000 ms, generated locally without TTS. Timeline JSON
+includes speech and silence entries. The single MP3 can be looped by the player.
+
+Manual creation (replace IDs with existing translated words; this may incur TTS
+charges on cache misses, so run only when ready to verify):
+
+```sh
+curl -X POST http://localhost:5126/audio-sessions \
+  -H 'Content-Type: application/json' \
+  -d '{"wordIds":[23,24],"requestId":"ca79c5aa-ea50-4a61-9895-226081e43d22"}'
+```
+
+Keep the same request ID and ordered IDs when recovering an uncertain response.
+GET `/audio-sessions/{id}` reports status and, when ready, audio/timeline URLs.
+The mobile configuration still displays legacy controls until a separate task.
+Build verification runs `dotnet build VocaCycle.slnx --no-restore`; no provider calls
+or generation are needed to build. Historical example-session checks have not been
+updated for this workflow and are not evidence of Pairs behavior.

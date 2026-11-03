@@ -327,3 +327,40 @@ implementation. Backend checks use an isolated disposable database and stubbed H
 Physical-iPhone validation remains necessary for swipe/scroll arbitration, the
 350 ms dissolve and neighboring movement, five-second Undo, force-close/relaunch,
 Reduce Motion/VoiceOver, playback and native pull-to-refresh.
+
+## Pairs session player
+
+Audio Ready and the current-session Audio Library entry open `/audio/player/[id]`.
+The player streams the existing API MP3 and reads its timeline; neither operation
+creates audio. Native playback events drive position, buffering and duration.
+Timeline timestamps drive EN/RU speech highlighting, actual silence intervals,
+word selection and previous/next navigation. Drag or tap the seek bar, use ±15s,
+or use VoiceOver's adjustable seek actions. Playback speed supports 0.75×, 1×, 1.25× and 1.5×; Loop repeats
+the existing MP3 natively without synthesis. A missing timeline leaves ordinary
+audio controls available and offers a read-only reload.
+
+The existing `expo-audio` config plugin now enables background playback. A new
+Expo development build is required for these native settings to take effect;
+background/locked-screen behavior cannot be validated from an old binary or
+assumed from Expo Go. Session playback configures silent-mode/background audio,
+lock-screen metadata and native play/pause/seek controls. App background and phone
+lock and tab switches retain the player and its current position. Unmount, session
+replacement or explicit playback retry releases it. Only one session owns playback. Home pronunciation
+keeps its separate foreground-only lifecycle. No microphone permission is enabled.
+
+This change was reviewed by reading the source only. No tests, builds, lint,
+type checks, paid requests or native device verification were performed. Manually
+verify stream startup, seek and word boundaries, buffering/error recovery, repeat,
+headphone interruptions, foreground restoration and lock-screen controls on iPhone
+and Android using existing recordings.
+
+The Pairs player remains inside the existing Audio tab. Native tabs stay visible,
+retain the Audio stack when reselected, and handle the tab bar's bottom inset through
+the existing screen-safe-area component. No second tab bar is rendered. The Active
+Cadence card is omitted; the word badge still follows real EN/RU/pause timeline state.
+
+The session selector reads `GET /audio-sessions` and filters/deduplicates ready
+sessions. The backend in this checkout currently exposes detail/audio/timeline GETs
+only, so collection GET returns 404/405. In that case the selector explains the
+limitation and retains only the real current-session option. Listing every ready
+session requires a collection endpoint; this frontend change does not add one.

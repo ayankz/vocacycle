@@ -16,6 +16,9 @@ public class VocaCycleDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        // Explicit zero means Pairs; do not let EF replace it with the legacy DB default.
+        modelBuilder.Entity<AudioSession>().Property(s => s.ExamplesPerWord).HasDefaultValue(5).HasSentinel(5);
+        modelBuilder.Entity<AudioSession>().HasIndex(s => s.RequestId).IsUnique();
         modelBuilder.Entity<Word>()
             .HasIndex(word => word.Text)
             .IsUnique()
