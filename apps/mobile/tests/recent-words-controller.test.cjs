@@ -409,3 +409,20 @@ test('a stale GET cannot resurrect a word after its DELETE has committed', async
   assert.equal(s.state.words.length, 0); assert.equal(s.state.attempts.has(27), false);
   s.controller.blur();
 });
+
+test('statistics distinguish failed first load, confirmed empty vocabulary and stale zero', async () => {
+  let fail = true;
+  const s = setup(async () => { if (fail) throw Error('offline'); return []; });
+  s.controller.focus(); await s.flush();
+  assert.equal(s.state.loading, false);
+  assert.equal(s.state.hasLoaded, false);
+  assert.equal(s.state.error, 'offline');
+  fail = false; s.controller.refreshManually(); await s.flush();
+  assert.equal(s.state.hasLoaded, true);
+  assert.equal(s.state.words.length, 0);
+  assert.equal(s.state.error, null);
+  fail = true; s.controller.refreshManually(); await s.flush();
+  assert.equal(s.state.hasLoaded, true);
+  assert.equal(s.state.words.length, 0);
+  assert.equal(s.state.error, 'offline');
+});

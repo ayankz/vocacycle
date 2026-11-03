@@ -7,18 +7,20 @@ import { colors } from '@/shared/theme/colors';
 import { AppText } from '@/shared/ui/AppText';
 
 export type HomeListeningStatistics = {
-  wordsSaved: number;
-  sessions: number;
-  listenedMinutes: number;
+  wordsSaved: number | null;
+  sessions: number | null;
+  listenedMinutes: number | null;
 };
 
-export function HomeListeningStats({ statistics }: { statistics: HomeListeningStatistics }) {
-  const hours = Math.floor(statistics.listenedMinutes / 60);
-  const minutes = statistics.listenedMinutes % 60;
+export function HomeListeningStats({ statistics, loading = false, error }: { statistics: HomeListeningStatistics; loading?: boolean; error?: string | null }) {
+  const duration = statistics.listenedMinutes;
+  const hours = duration === null ? 0 : Math.floor(duration / 60);
+  const minutes = duration === null ? 0 : duration % 60;
+  const stale = !loading && !!error && statistics.wordsSaved !== null;
   const metrics = [
-    { value: String(statistics.wordsSaved), label: 'words saved' },
-    { value: String(statistics.sessions), label: 'sessions' },
-    { value: hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`, label: 'listened' },
+    { value: loading ? '…' : statistics.wordsSaved === null ? '—' : String(statistics.wordsSaved), label: stale ? 'words saved (stale)' : 'words saved', hint: error ? 'Could not refresh saved words. Pull to refresh to try again.' : undefined },
+    { value: statistics.sessions === null ? '—' : String(statistics.sessions), label: 'sessions' },
+    { value: duration === null ? '—' : hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`, label: 'listened' },
   ];
 
   return (
@@ -27,7 +29,7 @@ export function HomeListeningStats({ statistics }: { statistics: HomeListeningSt
         {metrics.map((metric, index) => (
           <Fragment key={metric.label}>
             {index > 0 && <AppText accessible={false} color="#2D2F38" style={styles.separator}>•</AppText>}
-            <View style={styles.metric} accessible accessibilityLabel={`${metric.value} ${metric.label}`}>
+            <View style={styles.metric} accessible accessibilityLabel={`${metric.value === '—' ? 'Unavailable' : metric.value === '…' ? 'Loading' : metric.value} ${metric.label}`} accessibilityHint={metric.hint}>
               <AppText style={styles.value}>{metric.value}</AppText>
               <AppText color="#787C8A" style={styles.label}>{metric.label}</AppText>
             </View>

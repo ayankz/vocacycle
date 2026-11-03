@@ -4,6 +4,7 @@ import type { WordDto } from './words-api';
 export type RecentWordsState = {
   words: WordDto[];
   loading: boolean;
+  hasLoaded?: boolean;
   refreshing: boolean;
   error: string | null;
   attempts: ReadonlyMap<number, number>;
@@ -12,7 +13,7 @@ export type RecentWordsState = {
 
 // One request and one timer for the whole list; attempt budgets belong to words.
 export class RecentWordsController {
-  private state: RecentWordsState = { words: [], loading: true, refreshing: false, error: null, attempts: new Map(), pronunciationAttempts: new Map() };
+  private state: RecentWordsState = { words: [], loading: true, hasLoaded: false, refreshing: false, error: null, attempts: new Map(), pronunciationAttempts: new Map() };
   private active = false;
   private generation = 0;
   private refreshRequested = false;
@@ -136,6 +137,7 @@ export class RecentWordsController {
       for (const word of words) if (word.pronunciationAudioUrl?.trim()) pronunciationAttempts.delete(word.id);
       this.state.pronunciationAttempts = pronunciationAttempts;
       this.state.error = null;
+      this.state.hasLoaded = true;
     } catch (error) {
       if (this.active && generation === this.generation) {
         this.state.error = controller.signal.aborted
