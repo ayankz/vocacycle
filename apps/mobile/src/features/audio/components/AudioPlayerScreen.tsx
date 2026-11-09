@@ -35,6 +35,8 @@ function useTimeline(id: number) {
       if (active && !request.signal.aborted) setState({ entries: [], loading: false, error: error instanceof Error ? error.message : 'Could not load the timeline.' });
     }).finally(() => clearTimeout(timeout));
     return () => { active = false; clearTimeout(timeout); request.abort(); };
+  // The retry counter intentionally reruns the focused timeline request.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, attempt]));
   return { ...state, retry: () => setAttempt(value => value + 1) };
 }

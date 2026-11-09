@@ -11,12 +11,13 @@ function hooks() {
 }
 function setup() {
   const hook = hooks(), generated = [], routes = [];
-  const state = { words: [{ id: 27, text: 'bike' }, { id: 29, text: 'glasses' }], loading: false, refreshing: false, error: null, refresh() {} };
+  const state = { words: [{ id: 27, text: 'bike', translation: 'велосипед' }, { id: 29, text: 'glasses', translation: 'очки' }], loading: false, refreshing: false, error: null, refresh() {} };
   const params = { wordIds: '[29,27,29]' }; const creation = { busy: false, error: null, generate: settings => generated.push(settings) };
   const Screen = createLoader({
     react: { useState: hook.useState },
     'react-native': { Alert: { alert() {} }, View: 'view', ScrollView: 'scroll', Pressable: 'button', RefreshControl: 'refresh', Switch: 'switch', StyleSheet: { create: v => v } },
     'expo-router': { useLocalSearchParams: () => params, router: { navigate: route => routes.push(route), replace() {} } },
+    'react-native-svg': { __esModule: true, default: 'svg', Circle: 'circle', Path: 'path' },
     'react-native-screens/experimental': { SafeAreaView: 'safe' },
     '@/shared/ui/AppText': { AppText: 'text' }, '@/shared/icons/ArrowRightIcon': { ArrowRightIcon: 'arrow' }, '@/shared/icons/ProfileIcon': { ProfileIcon: 'profile' },
     '@/features/vocabulary/hooks/use-vocabulary-words': { useVocabularyWords: () => state },
@@ -25,16 +26,13 @@ function setup() {
   return { render: () => { hook.reset(); return Screen(); }, generated, routes, state, params, creation };
 }
 const button = (tree, label) => nodes(tree).find(n => n.props.accessibilityLabel === label);
-test('configuration uses real selected words, defaults to five examples, and sends actual toggle settings', () => {
-  const s = setup(); let tree = s.render();
+test('configuration shows real selected words and submits their IDs for Pairs', () => {
+  const s = setup(); const tree = s.render();
   const text = nodes(tree).filter(n => n.type === 'text').flatMap(n => [n.props.children].flat()).filter(v => typeof v === 'string').join(' ');
   assert.match(text, /bike/); assert.match(text, /glasses/); assert.doesNotMatch(text, /Alex|45 seconds|18 min/);
-  assert.equal(button(tree, '5 examples per word').props.accessibilityState.selected, true);
-  button(tree, 'Generate Audio').props.onPress(); assert.deepEqual(Array.from(s.generated[0].wordIds), [29, 27]); assert.equal(s.generated[0].examplesPerWord, 5);
-  button(tree, '7 examples per word').props.onPress(); tree = s.render();
-  button(tree, 'Word translation').props.onValueChange(false); button(tree, 'Translate example sentences').props.onValueChange(true); tree = s.render();
   button(tree, 'Generate Audio').props.onPress();
-  assert.equal(s.generated[1].examplesPerWord, 7); assert.equal(s.generated[1].includeWordTranslation, false); assert.equal(s.generated[1].includeExampleTranslations, true);
+  assert.deepEqual(Array.from(s.generated[0].wordIds), [29, 27]);
+  assert.deepEqual(Object.keys(s.generated[0]), ['wordIds']);
 });
 test('missing/deleted selection, loading, API error, >20 words and double-submit busy state disable Generate', () => {
   const s = setup();
@@ -51,7 +49,7 @@ test('Edit passes serializable current IDs back to Vocabulary selection mode', (
 });
 test('Vocabulary Continue navigates to configuration with IDs instead of a placeholder alert', () => {
   const calls = [];
-  const tree = createLoader({ 'expo-router': { router: { navigate: route => calls.push(route) } }, '@/features/vocabulary/components/VocabularyScreen': { VocabularyScreen: 'vocabulary' } })('src/app/vocabulary.tsx').default();
+  const tree = createLoader({ 'expo-router': { router: { replace: route => calls.push(route) } }, '@/features/vocabulary/components/VocabularyScreen': { VocabularyScreen: 'vocabulary' } })('src/app/vocabulary.tsx').default();
   tree.props.onContinue([29, 27]); assert.equal(calls[0].pathname, '/audio/create'); assert.equal(calls[0].params.wordIds, '[29,27]');
 });
 

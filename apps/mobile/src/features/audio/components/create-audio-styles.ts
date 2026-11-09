@@ -49,7 +49,7 @@ export const createAudioStyles = StyleSheet.create({
   wave: { flexDirection: 'row', gap: 3, alignItems: 'center', height: 25 },
   waveBar: { width: 2, backgroundColor: colors.textOnPrimary },
   modalBackdrop: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.7)', justifyContent: 'center', padding: 24 },
-  dismissArea: { ...StyleSheet.absoluteFillObject },
+  dismissArea: { ...StyleSheet.absoluteFill },
   languageSheet: { width: '100%', maxWidth: 420, alignSelf: 'center', padding: 20, gap: 12, borderRadius: 20, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
   languageOption: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: 12, minHeight: 48, borderRadius: 12, borderWidth: 1, borderColor: colors.border },
   activeLanguage: { backgroundColor: colors.primarySubtle, borderColor: 'rgba(229, 169, 60, 0.3)' },

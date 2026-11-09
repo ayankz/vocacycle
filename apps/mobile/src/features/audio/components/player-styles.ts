@@ -49,7 +49,7 @@ export const playerStyles = StyleSheet.create({
   repeatChip: { flex: 1, minHeight: 44, borderRadius: 10, alignItems: 'center', justifyContent: 'center', padding: 8, backgroundColor: colors.surfaceElevated },
   repeatSelected: { backgroundColor: colors.primary },
   sheetBackdrop: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0, 0, 0, 0.7)' },
-  sheetDismiss: { ...StyleSheet.absoluteFillObject },
+  sheetDismiss: { ...StyleSheet.absoluteFill },
   sessionSheet: { maxHeight: '75%', padding: 20, borderTopLeftRadius: 24, borderTopRightRadius: 24, borderWidth: 1, borderColor: colors.cardBorder, backgroundColor: colors.input },
   sheetHandle: { width: 48, height: 4, borderRadius: 2, backgroundColor: colors.textMuted, alignSelf: 'center', marginBottom: 8 },
   sheetHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 12 },
