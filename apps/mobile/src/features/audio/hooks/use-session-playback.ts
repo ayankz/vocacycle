@@ -25,7 +25,8 @@ export function useSessionPlayback(id: number) {
 
   // Native tabs retain this screen. A tab blur must not dispose or restart audio.
   useEffect(() => {
-    const version = ++generation.current;
+    const generationRef = generation;
+    const version = ++generationRef.current;
     const current = () => generation.current === version;
     let native: AudioPlayer | null = null;
     let subscription: { remove(): void } | null = null;
@@ -34,6 +35,8 @@ export function useSessionPlayback(id: number) {
     let hasPlayed = false;
     desiredPlayback.current = true;
     seeking.current = false;
+    // Reset UI when replacing the external native player or retrying playback.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setState(initial);
     const release = () => {
       clearTimeout(timeout);
@@ -111,7 +114,7 @@ export function useSessionPlayback(id: number) {
       } catch { fail(); }
     })();
     return () => {
-      if (current()) generation.current++;
+      if (current()) generationRef.current++;
       failure.current = null;
       if (stopActiveSession === stopThisSession) stopActiveSession = null;
       release();
